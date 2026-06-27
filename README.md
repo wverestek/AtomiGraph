@@ -126,6 +126,9 @@ If you have ideas for new analysis tools or workflows, feel free to open an issu
 
 ## License
 
-AtomiGraph is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+AtomiGraph is free for non-commercial and academic use.
 
-For licensing questions, including potential commercial or alternative licensing arrangements, please contact the author.
+Commercial or production use requires explicit permission from the author.
+
+Contact: Wolfgang Verestek
+
