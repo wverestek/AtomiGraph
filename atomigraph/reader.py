@@ -197,6 +197,7 @@ def read_reax(infile: str) -> list[int, nx.Graph]:
 #########################
 def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
     ts = 0                                                      # in case there is no timestep in data file
+    xlo = xhi = ylo = yhi = zlo = zhi = None
     opener = gzip.open if infile.endswith(".gz") else open      # unlikely to be gzipped, but ....
     mode = "rt" if infile.endswith(".gz") else "r"
     with opener(infile, mode) as f:
@@ -206,7 +207,7 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
             #print("process: ",line.strip())
             # header section
             if "timestep =" in line:
-                ts = int(line.strip().split()[-1])              # should be last bosition in standard data file
+                ts = int(line.strip().split()[-1])              # should be last position in standard data file
             elif line.startswith("#") or len(line.strip())==0:
                 pass
             elif "atoms" in line:
@@ -229,9 +230,15 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
                 nimpropers = int(line.strip().split()[0])
             elif "improper types" in line:
                 nimpropertypes = int(line.strip().split()[0])
+            # Box dimensions
             elif any(x in line for x in ["xlo", "ylo", "zlo","avec","bvec","cvec","xy","xz","yz"]):
-                pass
-                
+                words = line.strip().split()
+                if words[-2] == "xlo" and words[-1] == "xhi":
+                    xlo, xhi = float(words[0]), float(words[1])
+                elif words[-2] == "ylo" and words[-1] == "yhi":
+                    ylo, yhi = float(words[0]), float(words[1])
+                elif words[-2] == "zlo" and words[-1] == "zhi":
+                    zlo, zhi = float(words[0]), float(words[1])
             # Masses
             elif "Masses" in line:
                 _ = f.readline() # skip one empty line
@@ -280,6 +287,20 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
                         words = line.strip().split()
                         atomID[idx],mol[idx],atomType[idx] = [int(i) for i in words[0:3]]
                         q[idx],pos[idx][0],pos[idx][1],pos[idx][2] = [float(i) for i in words[3:7]]
+                        # wrap to box
+                        if None not in (xlo, xhi, ylo, yhi, zlo, zhi):
+                            if pos[idx][0] < xlo:
+                               while pos[idx][0] < xlo: pos[idx][0] += (xhi-xlo) 
+                            elif pos[idx][0] > xhi:
+                                while pos[idx][0] > xhi: pos[idx][0] -= (xhi-xlo)
+                            if pos[idx][1] < ylo:
+                                while pos[idx][1] < ylo: pos[idx][1] += (yhi-ylo)
+                            elif pos[idx][1] > yhi:
+                                while pos[idx][1] > yhi: pos[idx][1] -= (yhi-ylo)
+                            if pos[idx][2] < zlo:
+                                while pos[idx][2] < zlo: pos[idx][2] += (zhi-zlo)
+                            elif pos[idx][2] > zhi:
+                                while pos[idx][2] > zhi: pos[idx][2] -= (zhi-zlo)
                 else:
                     #log.error("")
                     print("ERROR: unknown atom style")
@@ -322,7 +343,15 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
     # fill NetworkX Graph
     G = nx.Graph()
     # atoms => nodes
-    tmp = [(a, {"type": b, "mass":c, "q":d}) for a,b,c,d in zip(atomID, atomType, [idx2mass[i] for i in atomType], q)]
+    tmp = [(a, {"type": b, "mass":c, "q":d, "pos":[e,f,g]}) for a,b,c,d,e,f,g 
+           in zip(atomID, 
+                  atomType, 
+                  [idx2mass[i] for i in atomType], 
+                  q, 
+                  [pos[i][0] for i in range(natoms)], 
+                  [pos[i][1] for i in range(natoms)], 
+                  [pos[i][2] for i in range(natoms)])
+           ]
     G.add_nodes_from(tmp)
     # edges => bonds
     tmp = [(a,b,{"bid":c,"bt":d}) for [a, b],c,d in zip(bondPair,bondID,bondType)]
