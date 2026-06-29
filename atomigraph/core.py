@@ -59,7 +59,9 @@ class AtomiGraph:
             reader will accept a single filename or multiple files. For
             backward compatibility `self.infile` is the first filename (or "").
         informat : str
-            file type of the file containing bond information. Default "reaxff"
+            file type of the file containing bond information. 
+            reaxff, lammps_data
+            Default "reaxff"
         basename : str
             base name for output. If not set the input file name is used as base name.
         startstep : int

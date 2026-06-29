@@ -3,7 +3,7 @@
 
 import sys
 import argparse
-from core import ReaxXtract
+from core import AtomiGraph
 
 def main():
     parser = argparse.ArgumentParser(
@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--ring-limits", default="3:10", help="Min:Max ring size")
     args = parser.parse_args()
 
-    rxt = ReaxXtract(
+    topo = AtomiGraph(
         infile=args.input,
         basename=args.basename,
         atom_type_map=args.atom_map,
@@ -27,12 +27,12 @@ def main():
     )
 
     try:
-        rxt.read()
-        rxt.find_rxns()
-        rxt.plot_rxns()
+        topo.read()
+        topo.find_rxns()
+        topo.plot_rxns()
         if args.count_rings:
             limits = tuple(map(int, args.ring_limits.split(":")))
-            rxt.count_rings(ring_limits=limits)
+            topo.count_rings(ring_limits=limits)
     except Exception as e:
         print(f"Error: {e}")
         usage()

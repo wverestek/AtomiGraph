@@ -19,7 +19,8 @@ def configure_log(level: Optional[str] = None, force: bool = False) -> None:
     """
     Configure the package logger.
 
-    - level: optional string like "DEBUG", "INFO", ...; if None, used from env REAXXTRACT_LOG_LEVEL or default "INFO".
+    - level: optional string like "DEBUG", "INFO", ...; if None, used from 
+             env ATOMIGRAPH_LOG_LEVEL or default "INFO".
     - force: if True remove existing handlers before adding new one (useful in notebooks).
 
     Numeric log levels:
