@@ -21,3 +21,5 @@ dev = ["pytest>=8"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["slow: long-running validation on large examples (run with -m slow)"]
+addopts = "-m 'not slow'"

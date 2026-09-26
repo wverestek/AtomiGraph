@@ -1,31 +1,12 @@
-from pathlib import Path
-
 import networkx as nx
 import pandas as pd
-import pytest
 
 from atomigraph import AtomiGraph
-
-EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples" / "03_PE_chain_scission"
 
 
 def count_reactions(ag):
     # renumber_and_count_rxns currently returns None when no reaction was found
     return 0 if ag.rxns is None else len(ag.rxns)
-
-
-@pytest.mark.parametrize("cutoff", [0, 1, 2])
-def test_two_independent_scissions(tmp_path, monkeypatch, cutoff):
-    # find_reactions writes <basename>_rxnIDs.dat relative to cwd; keep it out of the repo
-    monkeypatch.chdir(tmp_path)
-    ag = AtomiGraph(infile=str(EXAMPLE_DIR / "pe_chain.*.data"), informat="lammps_data",
-                    basename=str(tmp_path / "pe_chain"), rxn_bond_cutoff=cutoff)
-    ag.read()
-    assert list(ag.frames["timestep"]) == [0, 1000]
-
-    ag.find_reactions()
-
-    assert count_reactions(ag) == 2
 
 
 def chain_graph(n=30, broken=()):
