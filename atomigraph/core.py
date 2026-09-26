@@ -112,7 +112,7 @@ class AtomiGraph:
         self.checkframe:int = int(checkframe)   # necessary?
         self.stabiframe:int = int(stabiframes)
         self.stepframe:int = int(stepframe)     # necessary?
-        self.maxframe_offset = 0
+        self.last_searched_frame:int = -1        # frames up to this one are already searched for reactions
         
         # pandas DataFrame to store global bond topology
         self.frames:pd.DataFrame = pd.DataFrame(columns=("frame","timestep","graph")) # DataFrame with columns ['timestep','graph']
@@ -188,17 +188,15 @@ class AtomiGraph:
             # first read, no existing frames, just set frames DataFrame
             self.frames = pd.DataFrame({"frame":frames_arr,"timestep": ts,"graph": nxg})
         else:
-            # subsequent read
-            # drop frames in case large files are read in multiple calls to avoid 
-            # memory issues, but keep stabilize frames for reaction checking
+            # subsequent read: new frames continue the numbering
+            frames_arr = [i + self.frames["frame"].iloc[-1] + 1 for i in frames_arr]
+            # drop old frames to limit memory, keep the ones the next search still needs
             nframes = len(self.frames["frame"])
-            if  nframes > 100 and nframes > self.stabiframe:
-                maxframe_keep =  self.frames["frame"].iloc[-1] - self.stabiframe
+            nkeep = self.stabiframe + self.checkframe
+            if  nframes > 100 and nframes > nkeep:
+                maxframe_keep =  self.frames["frame"].iloc[-1] - nkeep + 1
                 idx = np.where(self.frames["frame"].lt(maxframe_keep))[0].tolist()
                 _ = self.frames.drop(index=idx, inplace=True)
-                # renumber new frames to continue from last frame + 1
-                maxframe_old = self.frames["frame"].max() if not self.frames.empty else -1
-                frames_arr = [i + maxframe_old + 1 for i in frames_arr]
             # concatenate new frames to existing frames DataFrame
             self.frames = pd.concat([self.frames, 
                                      pd.DataFrame({"frame":frames_arr,"timestep": ts,"graph": nxg})],
@@ -214,6 +212,8 @@ class AtomiGraph:
 
         Frame idx is compared with frame idx - checkframe for idx = checkframe, checkframe + stepframe, ...
         up to the last frame minus stabiframes. If no frames have been read yet, self.read() is called.
+        Frames searched in a previous call are skipped, so large trajectories can be processed in
+        chunks: read(files1), find_reactions(), read(files2), find_reactions(), ...
 
         For each pair of frames:
         - changed bonds are the bonds present in only one of the two graphs (broken or formed);
@@ -267,11 +267,11 @@ class AtomiGraph:
 
         df_file = pd.DataFrame(columns=self.rxns.columns)
         
+        last_frame = self.last_searched_frame
         for idx in range(start + cf, stop, fs):
-            # dicts for conversion
-            node2element = nx.get_node_attributes(self.frames["graph"].iloc[idx], name="element")
-            node2type    = nx.get_node_attributes(self.frames["graph"].iloc[idx], name="type")
-
+            if self.frames["frame"].iloc[idx] <= self.last_searched_frame:
+                continue                                # searched in a previous call
+            last_frame = self.frames["frame"].iloc[idx]
             before_idx = idx - cf
             after_idx = idx
 
@@ -291,6 +291,7 @@ class AtomiGraph:
                 else:
                     log.warning("You should not be here. Maybe you have discovered a bug. Please consider reporting with a minimal example")
 
+        self.last_searched_frame = last_frame
         
         # adding newly found reactions to self.rxns DataFrame
         # first search
@@ -298,7 +299,6 @@ class AtomiGraph:
             self.rxns = df_file.copy()
         else:
             log.info(f"appending new search to already stored reactions")
-            df_file["frame"] = df_file["frame"] + self.maxframe_offset
             self.rxns = pd.concat([self.rxns,df_file],ignore_index=True)
 
         #self.df1 = df_file.copy()
