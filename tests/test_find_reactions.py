@@ -5,7 +5,7 @@ from atomigraph import AtomiGraph
 
 
 def count_reactions(ag):
-    # renumber_and_count_rxns currently returns None when no reaction was found
+    # renumber_and_count_reactions currently returns None when no reaction was found
     return 0 if ag.rxns is None else len(ag.rxns)
 
 
