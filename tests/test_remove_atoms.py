@@ -1,5 +1,6 @@
 import networkx as nx
 import pandas as pd
+import pytest
 
 from atomigraph import remove_atoms_by_type, remove_atoms_by_pattern
 
@@ -40,3 +41,9 @@ def test_remove_atoms_by_pattern_keeps_original():
     assert snapshot(df) == before
     assert all(sorted(g.nodes()) == [2, 3, 4] for g in reduced["graph"])
     assert all(g is not h for g, h in zip(df["graph"], reduced["graph"]))
+
+
+def test_remove_atoms_by_pattern_unknown_ids_raise():
+    df = make_frames()
+    with pytest.raises(ValueError, match=r"\[99\]"):
+        remove_atoms_by_pattern(df, template_node_ids=[1, 2, 99], delete_node_ids=[1])
