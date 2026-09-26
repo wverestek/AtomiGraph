@@ -36,7 +36,8 @@ def main(argv: list[str] | None = None) -> int:
 
     infile = args.input[0] if len(args.input) == 1 else args.input
     try:
-        topo = AtomiGraph(infile=infile, informat=args.format, atom_type_map=args.atom_map,
+        topo = AtomiGraph(infile=infile, informat=args.format, basename=args.basename,
+                          atom_type_map=args.atom_map,
                           rxn_bond_cutoff=args.cutoff,
                           checkframe=args.checkframe, stepframe=args.stepframe)
         topo.read()
@@ -50,10 +51,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     print(f"{len(topo.rxns)} reaction(s) found, {topo.rxns['rxnID'].nunique()} unique.")
 
-    basename = args.basename or topo.basename
-    write_reactions(topo.rxns, filename=f"{basename}_rxnIDs.dat")
+    write_reactions(topo.rxns, filename=f"{topo.basename}_rxnIDs.dat")
     if not args.no_plot:
-        plot_reactions(topo.rxns, basename=basename, outformat=args.plot_format)
+        plot_reactions(topo.rxns, basename=topo.basename, outformat=args.plot_format)
     #if args.count_rings:
     #    limits = tuple(map(int, args.ring_limits.split(":")))
     #    topo.count_rings(ring_limits=limits)

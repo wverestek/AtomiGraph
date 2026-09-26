@@ -37,6 +37,27 @@ __all__ = ['DEFAULT_COLOR', 'ELEM2HEX', 'ON2ELEM', 'ON2HEX',
            'write_reactions', 'plot_reactions', 'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
 
 
+def _derive_basename(infile: Union[str, List[str]]) -> str:
+    """
+    Output basename from input file name(s), without directory and extensions:
+    part before the first wildcard, or the common prefix of several files.
+    'pe_chain.*.data' and ['pe_chain.0.data', 'pe_chain.1000.data'] -> 'pe_chain'
+    """
+    names = [infile] if isinstance(infile, str) else list(infile or [])
+    stems = []
+    for name in filter(None, names):
+        base = os.path.basename(name)
+        head = re.split(r"[*?\[]", base, maxsplit=1)[0]
+        # no wildcard: drop file extensions
+        stems.append(head if head != base else re.sub(r"(\.(?:gz|txt|dat|data|dump))+$", "", base))
+    if not stems:
+        return "AtomiGraph"
+    prefix = os.path.commonprefix(stems)
+    if any(stem != prefix for stem in stems):
+        prefix = re.sub(r"[^._-]*$", "", prefix)    # differing names: cut back to a separator
+    return prefix.rstrip("._-") or "AtomiGraph"
+
+
 class AtomiGraph:
     ##############
     # initialize #
@@ -85,11 +106,8 @@ class AtomiGraph:
         # reader.read_bonds accepts either a string, a list or glob pattern(s).
         self.infile: Union[str, List[str]] = infile
         self.informat: str = informat.lower()
-        # derive basename based on only or first filename string
-        if isinstance(self.infile, str) and len(self.infile) > 0:
-            self.basename: str = re.sub(r'(\.(?:gz|txt|dat|data|dump))+$', '', os.path.basename(self.infile))
-        elif isinstance(self.infile, list):
-            self.basename: str = re.sub(r'(\.(?:gz|txt|dat|data|dump))+$', '', os.path.basename(self.infile[0]))
+        # output basename: given explicitly or derived from the input file name(s)
+        self.basename: str = basename or _derive_basename(infile)
         
         self.checkframe:int = int(checkframe)   # necessary?
         self.stabiframe:int = int(stabiframes)
