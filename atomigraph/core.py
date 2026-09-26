@@ -559,7 +559,11 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
     df_work = df.copy(deep=True)
 
     # 2. Create the template graph
-    template = df_work["graph"].iloc[pattern_from_frame].subgraph(template_node_ids).copy()
+    pattern_graph = df_work["graph"].iloc[pattern_from_frame]
+    missing = sorted(template_set - set(pattern_graph.nodes()))
+    if missing:
+        raise ValueError(f"template_node_ids {missing} not found in frame {pattern_from_frame}")
+    template = pattern_graph.subgraph(template_node_ids).copy()
     log.info(f"Starting topology reduction")
     log.info(f"Template pattern nodes: {list(template.nodes())}")
 
