@@ -52,14 +52,13 @@ def test_02_03_peek_one_reaction(tmp_path, monkeypatch, infile, cutoff):
     assert (rxn["edges_before"], rxn["edges_after"]) == ([], [{703, 719}])
 
 
-@pytest.mark.slow
-@pytest.mark.parametrize("cutoff, n_rxns, n_unique", [(0, 859, 38), (1, 856, 123)])
+@pytest.mark.parametrize("cutoff, n_rxns, n_unique", [(0, 212, 41), (1, 206, 78)])
 def test_04_peek_many_reactions(tmp_path, monkeypatch, cutoff, n_rxns, n_unique):
     # regression values recorded with the current code, not independently validated
     topo = run_example(tmp_path, monkeypatch, "04_PEEK_many_reactions/bonds.reaxff.dump",
                        atom_type_map=PEEK_TYPE_MAP, rxn_bond_cutoff=cutoff)
 
-    assert len(topo.frames) == 1001
+    assert len(topo.frames) == 101
     assert len(topo.rxns) == n_rxns
     assert topo.rxns["rxnID"].nunique() == n_unique
 

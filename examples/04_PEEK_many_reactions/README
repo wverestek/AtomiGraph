@@ -1,14 +1,11 @@
-Large ReaxFF example: the PEEK system of 02_PEEK_one_reaction (1030 atoms) over 1001 frames
-(~95 MB bond file). Runtime about 10 s and ~1 GB memory per find_reactions() call.
-
-  bonds.reaxff.dump   bond information, fix reaxff/bonds (format: see 02_PEEK_one_reaction)
-  atoms.reaxff.dump   custom dump with id, type, q, mol, xu, yu, zu (not read by AtomiGraph yet)
+Longer ReaxFF trajectory: the PEEK system of 02_PEEK_one_reaction (1030 atoms), timesteps
+0 to 1000000, every 10000th step (101 frames, ~10 MB). File format: see 02_PEEK_one_reaction.
 
 Reference values (regression check, recorded with the current code, not independently validated):
 
   rxn_bond_cutoff   reactions   unique rxnIDs
-  0                 859         38
-  1                 856         123
+  0                 212         41
+  1                 206         78
 
 Usage:
   from atomigraph import AtomiGraph

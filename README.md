@@ -86,12 +86,11 @@ The examples in `examples/` double as validation cases; each README lists the ex
 - `01_PE_chain_basic`: synthetic united-atom PE chain (LAMMPS data files): bond scission, formation and flip
 - `02_PEEK_one_reaction`: small ReaxFF trajectory with a single bond formation
 - `03_PEEK_multiple_files`: same trajectory split into one file per frame (glob input)
-- `04_PEEK_many_reactions`: large ReaxFF trajectory (1001 frames), regression values
+- `04_PEEK_many_reactions`: longer ReaxFF trajectory (101 frames), regression values
 
 ```Bash
 pip install -e ".[dev]"
-pytest              # fast tests
-pytest -m slow      # large example (04)
+pytest
 ```
 
 ---
