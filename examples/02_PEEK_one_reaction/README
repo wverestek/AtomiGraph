@@ -21,7 +21,7 @@ formation of the bond 703-719 (no bond broken).
 
 Usage:
   from atomigraph import AtomiGraph
-  ag = AtomiGraph(infile="examples/02_PEEK_one_reaction/bonds.reaxff.dump",
-                  atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O")
-  ag.read()
-  ag.find_reactions()
+  topo = AtomiGraph(infile="examples/02_PEEK_one_reaction/bonds.reaxff.dump",
+                    atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O")
+  topo.read()
+  topo.find_reactions()

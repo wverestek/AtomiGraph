@@ -240,10 +240,10 @@ class AtomiGraph:
         Use self.write_reactions() for a text summary and self.plot_reactions() for plots.
 
         Example:
-            net = AtomiGraph(infile="bonds.reaxff.dump", atom_type_map="1:C,2:H,3:O")
-            net.read()
-            net.find_reactions()
-            net.rxns[["timestep", "rxnID", "edges_before", "edges_after"]]
+            topo = AtomiGraph(infile="bonds.reaxff.dump", atom_type_map="1:C,2:H,3:O")
+            topo.read()
+            topo.find_reactions()
+            topo.rxns[["timestep", "rxnID", "edges_before", "edges_after"]]
         """
 
         if self.frames.empty:

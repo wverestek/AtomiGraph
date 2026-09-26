@@ -36,12 +36,12 @@ def test_unknown_section_raises(tmp_path):
 def test_unmapped_atom_types_warn_once(caplog):
     from atomigraph import AtomiGraph
     infile = str(PE_DATA.parent / "pe_chain.*.data")
-    net = AtomiGraph(infile=infile, informat="lammps_data", atom_type_map="1:C")
+    topo = AtomiGraph(infile=infile, informat="lammps_data", atom_type_map="1:C")
 
     with caplog.at_level("WARNING", logger="atomigraph"):
-        net.read()
+        topo.read()
 
     warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert warnings == ["atom type(s) [2] not in atom_type_map, element set to 'X'"]
-    elements = {g.nodes[n]["element"] for g in net.frames["graph"] for n in g}
+    elements = {g.nodes[n]["element"] for g in topo.frames["graph"] for n in g}
     assert elements == {"C", "X"}
