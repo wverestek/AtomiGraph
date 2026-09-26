@@ -302,9 +302,8 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
                             elif pos[idx][2] > zhi:
                                 while pos[idx][2] > zhi: pos[idx][2] -= (zhi-zlo)
                 else:
-                    #log.error("")
-                    print("ERROR: unknown atom style")
-                    sys.exit(0) 
+                    raise ValueError(f"LAMMPS data file {infile!r}: unsupported atom style in "
+                                     f"{line.strip()!r}, only 'Atoms # full' is supported")
                 _ = f.readline() # skip one empty line
             elif "Velocities" in line:
                 for idx in range(natoms+2): 
@@ -329,12 +328,8 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
                 for idx in range(nimpropers+2): 
                     _ = f.readline() # skip Impropers
             else:
-                #log.warning
-                print("You should not be here!")
-                print("##### ##### #####")
-                print(line)
-                print("##### ##### #####")
-                sys.exit(0)
+                raise ValueError(f"LAMMPS data file {infile!r}: unsupported or unexpected line "
+                                 f"{line.strip()!r}")
             # next line
             line = f.readline()
     
