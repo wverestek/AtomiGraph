@@ -190,46 +190,40 @@ class AtomiGraph:
     # find reactions #
     def find_reactions(self):
         """
-        read_rxns(self,
-                  infile: Optional[str] = None,
-                  informat: Optional[str] = None,
-                  force: bool = False) -> pandas.DataFrame
+        Find reactions, i.e. changes in bond topology, between frames and store them in self.rxns.
 
-        Convenience method that runs reaction detection, 
-        returning a reaction-level pandas.DataFrame.
+        Frame idx is compared with frame idx - checkframe for idx = checkframe, checkframe + stepframe, ...
+        up to the last frame minus stabiframes. If no frames have been read yet, self.read() is called.
 
-        Summary
-        - Calls `self.read(infile, informat)` (unless already read and force is False)
-          and then `self.find_reactions()`.
-        - After execution the instance contains:
-            - self.frames (DataFrame, one row per frame)
-            - self.rxns (DataFrame, one row per detected reaction occurrence)
-            - self.rxn_id and self.rxn_count for unique-reaction bookkeeping
+        For each pair of frames:
+        - changed bonds are the bonds present in only one of the two graphs (broken or formed);
+        - atoms connected via changed bonds (and bonds between them) form the core of a reaction,
+          so a broken and a newly formed bond sharing atoms (bond flip) are one reaction;
+        - each core is expanded by rxn_bond_cutoff bonds in both frames; expanded sets that share
+          atoms are merged (transitively) into one reaction;
+        - each reaction is hashed (Weisfeiler-Lehman, node attribute hash_by) before and after.
 
-        Returns
-        - pandas.DataFrame: `self.rxns` - reaction occurrences with typical columns:
-            `frame_idx`, `timestep`, `rxn_idx`, `rxn_id`, `rxn_hash`,  `rxn_total_count`,
-            `before_components`, `after_components`, `types_before`, `types_after`,
-            `elements_before`, `elements_after`, `atoms_list`.
+        Results are appended to self.rxns (pandas.DataFrame, one row per reaction occurrence), then
+        rxnID and rxnCount are renumbered over all stored reactions: reactions with the same
+        before:after hash pair share a rxnID (in order of first appearance), rxnCount counts
+        their occurrences. Columns:
+            frame, timestep            frame index and MD timestep of the "after" frame
+            rxnID, rxnCount            reaction type and running count of this type
+            edges_before, edges_after  bonds broken / formed, list of {atom_i, atom_j}
+            atoms_rxn                  atoms of the changed bonds
+            atoms_env                  atoms of the reaction incl. rxn_bond_cutoff environment
+            atoms_plot                 atoms_env plus plot_bonds_cutoff environment
+            Gbefore, Gafter            subgraphs of atoms_plot before / after
+            rxn_hash_before, rxn_hash_after  WL hashes of atoms_env before / after
 
-        Side effects
-        - Overwrites/sets: `self.rxns`, `self.rxn_id`, `self.rxn_count`.
-        - Writes summary file `self.basename + "_rxnIDs.dat"` (same behavior as current find_rxns).
+        If no reaction is found at all, self.rxns is None.
+        Opens <basename>_rxnIDs.dat for a text summary; per-reaction lines are not written yet.
 
-        Errors / Exceptions
-        - ValueError: when no input file available or start/stop steps invalid.
-        - FileNotFoundError or reader errors propagated from `read_bonds`.
-        - RuntimeError for unexpected internal state.
-
-        Performance notes
-        - WL hashing and graph operations can be CPU / memory intensive for large trajectories.
-          Consider chunked processing, serializing graphs to disk, or disabling hashing for
-          very large datasets. For chunked processing rxn_ids might be inconsistent across chunks.
-
-        Example
-            r = AtomiGraph(infile="bonds.reaxff.dump")
-            rxns = r.read_rxns()           # reads frames and finds reactions
-            rxns.to_csv("rxns_summary.csv")
+        Example:
+            net = AtomiGraph(infile="bonds.reaxff.dump", atom_type_map="1:C,2:H,3:O")
+            net.read()
+            net.find_reactions()
+            net.rxns[["timestep", "rxnID", "edges_before", "edges_after"]]
         """
 
         if self.frames.empty:
