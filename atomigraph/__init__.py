@@ -11,4 +11,4 @@ __all__ = ['DEFAULT_COLOR', 'ELEM2HEX', 'ON2ELEM', 'ON2HEX',
            'renumber_and_count_reactions', 'filter_transient_reactions', 'remove_atoms_by_type', 'remove_atoms_by_pattern', 
            'write_reactions', 'plot_reactions', 'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
