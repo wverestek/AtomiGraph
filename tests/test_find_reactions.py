@@ -137,3 +137,22 @@ def test_rxnID_and_rxnCount(tmp_path, monkeypatch):
     topo.find_reactions()
     assert list(topo.rxns["rxnID"]) == [0] * 11 + [1]
     assert list(topo.rxns["rxnCount"]) == list(range(1, 12)) + [1]
+
+
+def test_chunked_read_keeps_stepframe_grid(tmp_path, monkeypatch):
+    # stepframe 5: frames 1, 6, ..., 101 in the first call, 106 (105 vs 106) after the next read
+    monkeypatch.chdir(tmp_path)
+    intact = (PE_DIR / "pe_chain.0.data").read_text()
+    broken = (PE_DIR / "pe_chain.1000.data").read_text().replace("timestep = 1000", "timestep = 0")
+    for i in range(110):
+        text = intact if i < 106 else broken             # two scissions between frame 105 and 106
+        (tmp_path / f"f.{i}.data").write_text(text.replace("timestep = 0", f"timestep = {10 * i}"))
+    files = [str(tmp_path / f"f.{i}.data") for i in range(110)]
+
+    topo = AtomiGraph(infile=files[:102], informat="lammps_data", stepframe=5)
+    topo.read()
+    topo.find_reactions()
+    topo.read(infile=files[102:])
+    topo.find_reactions()
+
+    assert list(topo.rxns["frame"]) == [106, 106]
