@@ -8,6 +8,8 @@ natural order (timesteps 0, 1000, 2000) and give the same result as the single-f
 Expected result for rxn_bond_cutoff in {0, 1, 2}: exactly 1 reaction at timestep 2000,
 formation of the bond 703-719 (identical to 02_PEEK_one_reaction).
 
+Reference output of write_reactions() (rxn_bond_cutoff 1): bonds.reaxff_rxnIDs_reference.dat
+
 Usage:
   from atomigraph import AtomiGraph
   topo = AtomiGraph(infile="examples/03_PEEK_multiple_files/bonds.reaxff.*.dump",

@@ -7,6 +7,8 @@ Reference values (regression check, recorded with the current code, not independ
   0                 212         41
   1                 206         78
 
+Reference output of write_reactions() (rxn_bond_cutoff 1): bonds.reaxff_rxnIDs_reference.dat
+
 Usage:
   from atomigraph import AtomiGraph
   topo = AtomiGraph(infile="examples/04_PEEK_many_reactions/bonds.reaxff.dump",

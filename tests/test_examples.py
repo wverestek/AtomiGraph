@@ -87,3 +87,22 @@ def test_05_epoxy_network_script(tmp_path, monkeypatch):
     assert fractions.iloc[-1][parts].round(1).tolist() == [71.3, 0.0, 8.7, 20.0]
     assert (tmp_path / "fractions.png").exists()
     assert (tmp_path / "fractions.csv").read_text() == (src / "fractions_reference.csv").read_text()
+
+
+def without_hashes(path):
+    # all columns except the WL hashes, which may depend on the networkx version
+    return [line.split("\t")[:-1] for line in path.read_text().splitlines()]
+
+
+@pytest.mark.parametrize("folder, infile, kwargs", [
+    ("01_PE_chain_basic", "pe_chain.*.data", {"informat": "lammps_data"}),
+    ("02_PEEK_one_reaction", "bonds.reaxff.dump", {"atom_type_map": PEEK_TYPE_MAP}),
+    ("03_PEEK_multiple_files", "bonds.reaxff.*.dump", {"atom_type_map": PEEK_TYPE_MAP}),
+    ("04_PEEK_many_reactions", "bonds.reaxff.dump", {"atom_type_map": PEEK_TYPE_MAP}),
+])
+def test_rxnIDs_match_reference(tmp_path, monkeypatch, folder, infile, kwargs):
+    topo = run_example(tmp_path, monkeypatch, f"{folder}/{infile}", rxn_bond_cutoff=1, **kwargs)
+    topo.write_reactions()
+
+    reference = EXAMPLES / folder / f"{topo.basename}_rxnIDs_reference.dat"
+    assert without_hashes(tmp_path / f"{topo.basename}_rxnIDs.dat") == without_hashes(reference)
