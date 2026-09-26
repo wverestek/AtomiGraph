@@ -1,0 +1,2 @@
+# Timestep	RxnID	RxnCount	FromIDs:ToIDs	FromType:ToType	FromElem:ToElem	Rxn_hashes
+2000	0	1	[[701, 703, 704, 705], [711, 717, 719, 720]]:[[701, 703, 704, 705, 711, 717, 719, 720]]	[[1, 1, 2, 1], [1, 1, 1, 2]]:[[1, 1, 2, 1, 1, 1, 1, 2]]	[['C', 'C', 'H', 'C'], ['C', 'C', 'C', 'H']]:[['C', 'C', 'H', 'C', 'C', 'C', 'C', 'H']]	33e99252c859549eac90512782ecd878:d711bffa0dc7b0e6553c6064af3204c1

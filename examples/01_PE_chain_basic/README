@@ -23,6 +23,8 @@ At 1000 the two scissions are 13 bonds apart and stay independent for any small 
 At 4000 the flip and the scission have separate cores (atoms 12/33/34 and 36/37, 2 bonds
 apart); for cutoff >= 1 their environments overlap and are merged into one reaction.
 
+Reference output of write_reactions() (rxn_bond_cutoff 1): pe_chain_rxnIDs_reference.dat
+
 Usage:
   from atomigraph import AtomiGraph
   topo = AtomiGraph(infile="examples/01_PE_chain_basic/pe_chain.*.data", informat="lammps_data",
