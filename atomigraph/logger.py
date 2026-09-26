@@ -56,5 +56,5 @@ log = logging.getLogger("atomigraph")
 # DuplicateFilter suppresses every repeated message for the whole session (e.g. the same
 # warning on a second read()); disabled for now, to be removed in the next update
 #log.addFilter(DuplicateFilter())
-# configure default on import (non-force) � can be overridden by calling configure(...) from entrypoint
+# configure default on import (non-force) - can be overridden by calling configure_log(...) from entrypoint
 configure_log()
