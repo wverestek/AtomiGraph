@@ -218,7 +218,7 @@ class AtomiGraph:
             Gbefore, Gafter            subgraphs of atoms_plot before / after
             rxn_hash_before, rxn_hash_after  WL hashes of atoms_env before / after
 
-        If no reaction is found at all, self.rxns is None.
+        If no reaction is found, self.rxns is an empty DataFrame with these columns.
         Use write_reactions(self.rxns) for a text summary and plot_reactions(self.rxns) for plots.
 
         Example:
@@ -410,17 +410,16 @@ class AtomiGraph:
 # renumber reactions and count unique reactions #
 def renumber_and_count_reactions(df:pd.core.frame.DataFrame=None) -> pd.core.frame.DataFrame:
     """
-    Renumber reactions and count unique reactions based on their hashes in pandas DataFrame. 
-    This method updates two columns of the DataFrame: 'rxnID' and 'rxnCount'.
-    If df is None, operates on self.rxns and updates it in place. Otherwise, operates on the 
-    provided DataFrame and returns a new DataFrame with the updated columns.
+    Return a copy of df with 'rxnID' and 'rxnCount' set from the before:after hashes:
+    same hash pair -> same rxnID (order of first appearance), rxnCount counts occurrences.
+    An empty df is returned as an empty copy.
     """
     # operate on a copy to avoid surprising in-place side effects for caller
     df_work = df.copy(deep=True)
 
-    if df_work is None or df_work.empty:
+    if df_work.empty:
         log.info("No reactions to renumber and count.")
-        return
+        return df_work
 
     # reset index to ensure consistent indexing for reaction ID assignment
     df_work.reset_index(drop=True, inplace=True)

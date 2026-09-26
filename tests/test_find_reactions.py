@@ -4,11 +4,6 @@ import pandas as pd
 from atomigraph import AtomiGraph
 
 
-def count_reactions(ag):
-    # renumber_and_count_reactions currently returns None when no reaction was found
-    return 0 if ag.rxns is None else len(ag.rxns)
-
-
 def chain_graph(n=30, broken=()):
     # united-atom PE chain 1..n, optionally without the given bonds
     g = nx.Graph()
@@ -33,7 +28,7 @@ def test_close_scissions_are_merged(tmp_path, monkeypatch):
     # environments {7..10} and {10..13} overlap for cutoff 1
     ag = run_on_graphs(tmp_path, monkeypatch,
                        [chain_graph(), chain_graph(broken={(8, 9), (11, 12)})], cutoff=1)
-    assert count_reactions(ag) == 1
+    assert len(ag.rxns) == 1
     assert ag.rxns["atoms_env"].iloc[0] == list(range(7, 14))
     assert len(ag.rxns["edges_before"].iloc[0]) == 2
 
@@ -43,6 +38,15 @@ def test_merge_is_transitive(tmp_path, monkeypatch):
     # A overlaps B, B overlaps C, A and C are disjoint -> still a single reaction
     ag = run_on_graphs(tmp_path, monkeypatch,
                        [chain_graph(), chain_graph(broken={(5, 6), (8, 9), (11, 12)})], cutoff=2)
-    assert count_reactions(ag) == 1
+    assert len(ag.rxns) == 1
     assert ag.rxns["atoms_env"].iloc[0] == list(range(3, 15))
     assert len(ag.rxns["edges_before"].iloc[0]) == 3
+
+
+def test_no_reactions_gives_empty_dataframe(tmp_path, monkeypatch):
+    ag = run_on_graphs(tmp_path, monkeypatch, [chain_graph(), chain_graph()], cutoff=1)
+    assert ag.rxns.empty
+    assert {"timestep", "rxnID", "rxnCount", "edges_before"} <= set(ag.rxns.columns)
+
+    ag.find_reactions()     # a second search must not fail on the empty result
+    assert ag.rxns.empty

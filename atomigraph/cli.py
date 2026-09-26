@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    if topo.rxns is None or topo.rxns.empty:
+    if topo.rxns.empty:
         print("No reactions found.")
         return 0
     print(f"{len(topo.rxns)} reaction(s) found, {topo.rxns['rxnID'].nunique()} unique.")
