@@ -33,11 +33,8 @@ def test_unknown_section_raises(tmp_path):
         read_lammps_data(infile)
 
 
-def test_unmapped_atom_types_warn_once(monkeypatch, caplog):
+def test_unmapped_atom_types_warn_once(caplog):
     from atomigraph import AtomiGraph
-    from atomigraph.logger import log
-    # the DuplicateFilter remembers messages across tests; disable it here
-    monkeypatch.setattr(log, "filters", [])
     infile = str(PE_DATA.parent / "pe_chain.*.data")
     net = AtomiGraph(infile=infile, informat="lammps_data", atom_type_map="1:C")
 
