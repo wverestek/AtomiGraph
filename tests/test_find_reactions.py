@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import networkx as nx
 import pandas as pd
 
@@ -50,3 +52,58 @@ def test_no_reactions_gives_empty_dataframe(tmp_path, monkeypatch):
 
     topo.find_reactions()     # a second search must not fail on the empty result
     assert topo.rxns.empty
+
+
+PE = Path(__file__).resolve().parents[1] / "examples" / "01_PE_chain_basic"
+
+
+def pe_reactions(topo):
+    return sorted((ts, tuple(atoms)) for ts, atoms in zip(topo.rxns["timestep"], topo.rxns["atoms_rxn"]))
+
+
+def test_find_reactions_twice_does_not_duplicate(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    topo = AtomiGraph(infile=str(PE / "pe_chain.*.data"), informat="lammps_data")
+    topo.read()
+    topo.find_reactions()
+    topo.find_reactions()
+    assert len(topo.rxns) == 5
+
+
+def test_chunked_read_equals_single_read(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    files = [str(PE / f"pe_chain.{ts}.data") for ts in (0, 1000, 2000, 3000, 4000)]
+    single = AtomiGraph(infile=files, informat="lammps_data")
+    single.read()
+    single.find_reactions()
+
+    chunked = AtomiGraph(infile=files[:3], informat="lammps_data")
+    chunked.read()
+    chunked.find_reactions()
+    chunked.read(infile=files[3:])
+    chunked.find_reactions()
+
+    assert list(chunked.frames["frame"]) == [0, 1, 2, 3, 4]
+    assert pe_reactions(chunked) == pe_reactions(single)
+    assert list(chunked.rxns["frame"]) == list(single.rxns["frame"])
+
+
+def test_chunked_read_drops_old_frames(tmp_path, monkeypatch):
+    # more than 100 frames: old frames are dropped on the next read, numbering continues
+    monkeypatch.chdir(tmp_path)
+    intact = (PE / "pe_chain.0.data").read_text()
+    broken = (PE / "pe_chain.1000.data").read_text().replace("timestep = 1000", "timestep = 0")
+    for i in range(105):
+        text = intact if i < 103 else broken             # two scissions between frame 102 and 103
+        (tmp_path / f"f.{i}.data").write_text(text.replace("timestep = 0", f"timestep = {10 * i}"))
+    topo = AtomiGraph(infile=[str(tmp_path / f"f.{i}.data") for i in range(102)], informat="lammps_data")
+    topo.read()
+    topo.find_reactions()
+    assert topo.rxns.empty
+
+    topo.read(infile=[str(tmp_path / f"f.{i}.data") for i in range(102, 105)])
+    topo.find_reactions()
+
+    assert list(topo.frames["frame"]) == [101, 102, 103, 104]
+    assert list(topo.rxns["frame"]) == [103, 103]
+    assert list(topo.rxns["timestep"]) == [1030, 1030]
