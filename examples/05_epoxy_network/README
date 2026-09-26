@@ -6,12 +6,13 @@ run_ag.py is a network analysis script:
   isomorphic pattern removal (remove_atoms_by_pattern), 275 -> 195 nodes per frame
 - splits each frame into giant component (cores, connecting, dangling) and sol fraction and
   computes size, cyclomatic number, diameter, average path length, clustering, cycle basis
-- writes fractions.csv and fractions.png (node fractions over timestep)
+- writes fractions.csv and fractions.png (node fractions over timestep); the committed files are
+  the reference result, git diff shows changes after a rerun
 
 Run in this folder:  python3 run_ag.py
 
 Expected results:
 - pattern removal: DETDA 5 matches, EPON 20 matches (2 rings x 10 molecules)
 - last frame (7012750): cores 71.3 %, connecting 0 %, dangling 8.7 %, sol 20.0 %;
-  cores appear at 3190000 (gel point); connecting is 0 % in all frames of this small system
+  cores appear at 3190000 (gel point); connecting is 0 % in all frames (small system)
 - find_reactions(), rxn_bond_cutoff 0 or 1: 18 reactions, one per frame pair
