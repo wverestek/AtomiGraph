@@ -561,7 +561,7 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
                 unique_molecule_footprints.add(molecule_footprint)
                 # add key (pattern id) if value (template id) is in delete_node_ids
                 #nodes_to_remove.add([k for k,v in match_dict.items() if v in delete_node_ids])
-                ## Nur für den ersten gefundenen Isomorphismus dieses Moleküls löschen
+                # delete nodes only for the first isomorphism found per molecule
                 inv_match = {v: k for k, v in match.items()}
                 for d_id in delete_node_ids:
                     if d_id in inv_match:
