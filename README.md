@@ -62,16 +62,21 @@ Without installing: add the base folder to `PYTHONPATH` (no `AtomiGraph` command
 ```python3
 import atomigraph as ag
 
-net = ag.AtomiGraph(
+topo = ag.AtomiGraph(
     infile="bonds.reaxff.dump",
     atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O"
 )
 
-net.read()
-net.find_reactions()                     # reactions in net.rxns (pandas DataFrame)
-ag.write_reactions(net.rxns, filename=f"{net.basename}_rxnIDs.dat")  # one line per reaction
-ag.plot_reactions(net.rxns, basename=net.basename, outformat="png")    # plots in folder <basename>
+topo.read()
+topo.find_reactions()           # reactions in topo.rxns (pandas DataFrame)
+topo.write_reactions()          # <basename>_rxnIDs.dat, one line per reaction
+topo.plot_reactions("png")      # plots in folder <basename>
 ```
+
+The output basename is derived from the input (here `bonds.reaxff`) unless `basename=...` is given.
+For another reaction DataFrame, e.g. after `filter_transient_reactions`, use the functions
+`ag.write_reactions(df, basename)` and `ag.plot_reactions(df, basename, outformat)`.
+
 ---
 
 ## Examples and tests

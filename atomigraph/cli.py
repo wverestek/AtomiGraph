@@ -4,7 +4,7 @@
 import sys
 import argparse
 
-from atomigraph.core import AtomiGraph, write_reactions, plot_reactions
+from atomigraph.core import AtomiGraph
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -51,9 +51,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     print(f"{len(topo.rxns)} reaction(s) found, {topo.rxns['rxnID'].nunique()} unique.")
 
-    write_reactions(topo.rxns, filename=f"{topo.basename}_rxnIDs.dat")
+    topo.write_reactions()
     if not args.no_plot:
-        plot_reactions(topo.rxns, basename=topo.basename, outformat=args.plot_format)
+        topo.plot_reactions(outformat=args.plot_format)
     #if args.count_rings:
     #    limits = tuple(map(int, args.ring_limits.split(":")))
     #    topo.count_rings(ring_limits=limits)

@@ -237,7 +237,7 @@ class AtomiGraph:
             rxn_hash_before, rxn_hash_after  WL hashes of atoms_env before / after
 
         If no reaction is found, self.rxns is an empty DataFrame with these columns.
-        Use write_reactions(self.rxns) for a text summary and plot_reactions(self.rxns) for plots.
+        Use self.write_reactions() for a text summary and self.plot_reactions() for plots.
 
         Example:
             net = AtomiGraph(infile="bonds.reaxff.dump", atom_type_map="1:C,2:H,3:O")
@@ -304,6 +304,15 @@ class AtomiGraph:
         #self.df1 = df_file.copy()
         # renumber reactions and count unique reactions
         self.rxns = renumber_and_count_reactions(self.rxns)
+
+    # write / plot reactions of this object #
+    def write_reactions(self) -> None:
+        """write_reactions(self.rxns, self.basename)"""
+        write_reactions(self.rxns, self.basename)
+
+    def plot_reactions(self, outformat:str="pdf") -> None:
+        """plot_reactions(self.rxns, self.basename, outformat)"""
+        plot_reactions(self.rxns, self.basename, outformat)
 
     # find reacting atoms for two frames #
     def _find_reacting_atoms_for_two_frames(self,Gbefore:nx.Graph,Gafter:nx.Graph):
@@ -604,13 +613,14 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
     return df_work
 
 # write reactions #
-def write_reactions(df:pd.core.frame.DataFrame, filename:str="AtomiGraph_rxnIDs.dat") -> None:
+def write_reactions(df:pd.core.frame.DataFrame, basename:str="AtomiGraph") -> None:
     """
-    Write a tab-separated summary with one line per reaction:
+    Write <basename>_rxnIDs.dat, a tab-separated summary with one line per reaction:
     timestep, rxnID, rxnCount, molecules before:after as atom IDs, atom types and elements,
     and the reaction hashes before:after. Molecules are the connected parts of the reaction
     environment (atoms_env) in the frame before and after the reaction.
     """
+    filename = f"{basename}_rxnIDs.dat"
     header = "# Timestep\tRxnID\tRxnCount\tFromIDs:ToIDs\tFromType:ToType\tFromElem:ToElem\tRxn_hashes"
     with open(filename, "wt") as f:
         f.write(header + "\n")
@@ -633,12 +643,13 @@ def write_reactions(df:pd.core.frame.DataFrame, filename:str="AtomiGraph_rxnIDs.
 
 # plot reactions #
 def plot_reactions(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:str="pdf") -> None:
+    """Plot each reaction (before/after) into the folder <basename>, outformat 'pdf' or 'png'."""
     # check if DataFrame is empty
     if df.empty:
         log.warning("No reactions found to plot.")
         return
 
-    outfolder = basename or "AtomiGraph_outdir"
+    outfolder = basename or "AtomiGraph"
     if not os.path.exists(outfolder):
         os.makedirs(outfolder, exist_ok=True)
     

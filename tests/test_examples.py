@@ -69,7 +69,7 @@ def test_write_reactions(tmp_path, monkeypatch):
                      informat="lammps_data", rxn_bond_cutoff=1)
     assert list(tmp_path.iterdir()) == []       # find_reactions itself writes nothing
 
-    write_reactions(ag.rxns, filename="pe_rxnIDs.dat")
+    write_reactions(ag.rxns, "pe")
 
     lines = (tmp_path / "pe_rxnIDs.dat").read_text().splitlines()
     assert lines[0].startswith("# Timestep\tRxnID\tRxnCount")

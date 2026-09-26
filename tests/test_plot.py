@@ -48,3 +48,23 @@ def test_plot_unmapped_atom_types(tmp_path, monkeypatch):
     ag.plot_reactions(net.rxns, basename="rxn_plots", outformat="png")
 
     assert len(list((tmp_path / "rxn_plots").iterdir())) == len(net.rxns)
+
+
+def test_write_and_plot_methods_use_basename(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    topo = ag.AtomiGraph(infile=str(EXAMPLE), atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O")
+    topo.read()
+    topo.find_reactions()
+
+    topo.write_reactions()
+    topo.plot_reactions(outformat="png")
+
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["bonds.reaxff", "bonds.reaxff_rxnIDs.dat"]
+    assert len(list((tmp_path / "bonds.reaxff").iterdir())) == 1
+
+
+def test_functions_default_basename(tmp_path, rxns):
+    ag.write_reactions(rxns)
+    ag.plot_reactions(rxns, outformat="png")
+
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["AtomiGraph", "AtomiGraph_rxnIDs.dat"]
