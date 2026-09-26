@@ -186,12 +186,11 @@ class AtomiGraph:
         else:
             # subsequent read: new frames continue the numbering
             frames_arr = [i + self.frames["frame"].iloc[-1] + 1 for i in frames_arr]
-            # drop old frames to limit memory, keep the ones the next search still needs
+            # drop old frames to limit memory, keep from the "before" frame of the next search on
             nframes = len(self.frames["frame"])
-            nkeep = self.stabiframe + self.checkframe
-            if  nframes > 100 and nframes > nkeep:
-                maxframe_keep =  self.frames["frame"].iloc[-1] - nkeep + 1
-                idx = np.where(self.frames["frame"].lt(maxframe_keep))[0].tolist()
+            if  nframes > 100 and self.last_searched_frame >= 0:
+                keep_from = self.last_searched_frame + self.stepframe - self.checkframe
+                idx = np.where(self.frames["frame"].lt(keep_from))[0].tolist()
                 _ = self.frames.drop(index=idx, inplace=True)
             # concatenate new frames to existing frames DataFrame
             self.frames = pd.concat([self.frames, 
@@ -208,8 +207,8 @@ class AtomiGraph:
 
         Frame idx is compared with frame idx - checkframe for idx = checkframe, checkframe + stepframe, ...
         up to the last frame minus stabiframes. If no frames have been read yet, self.read() is called.
-        Frames searched in a previous call are skipped, so large trajectories can be processed in
-        chunks: read(files1), find_reactions(), read(files2), find_reactions(), ...
+        A later call continues on the same grid after the last searched frame, so large trajectories
+        can be processed in chunks: read(files1), find_reactions(), read(files2), find_reactions(), ...
 
         For each pair of frames:
         - changed bonds are the bonds present in only one of the two graphs (broken or formed);
@@ -253,10 +252,14 @@ class AtomiGraph:
         log.info("Searching reactions...")
         
 
-        start = 0 
         stop =  len(self.frames["frame"]) - self.stabiframe 
         cf = self.checkframe
         fs = self.stepframe
+        # position of the first "after" frame; continue the stepframe grid of previous calls
+        if self.last_searched_frame < 0:
+            start = cf
+        else:
+            start = self.last_searched_frame + fs - self.frames["frame"].iloc[0]
 
         #self.rxn_id = []
         #self.rxn_count = []
@@ -264,9 +267,7 @@ class AtomiGraph:
         df_file = pd.DataFrame(columns=self.rxns.columns)
         
         last_frame = self.last_searched_frame
-        for idx in range(start + cf, stop, fs):
-            if self.frames["frame"].iloc[idx] <= self.last_searched_frame:
-                continue                                # searched in a previous call
+        for idx in range(start, stop, fs):
             last_frame = self.frames["frame"].iloc[idx]
             before_idx = idx - cf
             after_idx = idx
