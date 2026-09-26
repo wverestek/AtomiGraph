@@ -1,5 +1,6 @@
 import networkx as nx
 import pandas as pd
+import pytest
 
 from atomigraph import AtomiGraph
 from common import PE_DIR
@@ -14,9 +15,9 @@ def chain_graph(n=30, broken=()):
     return g
 
 
-def run_on_graphs(tmp_path, monkeypatch, graphs, cutoff):
+def run_on_graphs(tmp_path, monkeypatch, graphs, cutoff=1, **kwargs):
     monkeypatch.chdir(tmp_path)
-    topo = AtomiGraph(infile="synthetic", rxn_bond_cutoff=cutoff)
+    topo = AtomiGraph(infile="synthetic", rxn_bond_cutoff=cutoff, **kwargs)
     topo.frames = pd.DataFrame({"frame": list(range(len(graphs))),
                                 "timestep": [1000 * i for i in range(len(graphs))],
                                 "graph": graphs})
@@ -104,3 +105,35 @@ def test_chunked_read_drops_old_frames(tmp_path, monkeypatch):
     assert list(topo.frames["frame"]) == [101, 102, 103, 104]
     assert list(topo.rxns["frame"]) == [103, 103]
     assert list(topo.rxns["timestep"]) == [1030, 1030]
+
+
+def scission_series(nframes=12):
+    # frame i: 60-atom chain with i scissions at 5-6, 10-11, ..., one new scission per frame
+    return [chain_graph(n=60, broken={(5 * k, 5 * k + 1) for k in range(1, i + 1)}) for i in range(nframes)]
+
+
+@pytest.mark.parametrize("kwargs, frames, per_frame", [
+    ({}, list(range(1, 12)), 1),                                  # 0 vs 1, 1 vs 2, ...
+    ({"stepframe": 5}, [1, 6, 11], 1),                            # 0 vs 1, 5 vs 6, 10 vs 11
+    ({"checkframe": 2}, list(range(2, 12)), 2),                   # 0 vs 2: two scissions
+    ({"checkframe": 2, "stepframe": 4}, [2, 6, 10], 2),
+    ({"stabiframes": 2}, list(range(1, 10)), 1),                  # last 2 frames not evaluated
+])
+def test_frame_sampling(tmp_path, monkeypatch, kwargs, frames, per_frame):
+    topo = run_on_graphs(tmp_path, monkeypatch, scission_series(), **kwargs)
+    assert topo.rxns.groupby("frame").size().to_dict() == {f: per_frame for f in frames}
+
+
+def test_rxnID_and_rxnCount(tmp_path, monkeypatch):
+    # all scissions have the same local environment -> one rxnID, counted up
+    topo = run_on_graphs(tmp_path, monkeypatch, scission_series())
+    assert list(topo.rxns["rxnID"]) == [0] * 11
+    assert list(topo.rxns["rxnCount"]) == list(range(1, 12))
+
+    # a different reaction (recombination 5-6) gets the next rxnID, counts continue across calls
+    last = topo.frames["graph"].iloc[-1].copy()
+    last.add_edge(5, 6)
+    topo.frames.loc[len(topo.frames)] = {"frame": 12, "timestep": 12000, "graph": last}
+    topo.find_reactions()
+    assert list(topo.rxns["rxnID"]) == [0] * 11 + [1]
+    assert list(topo.rxns["rxnCount"]) == list(range(1, 12)) + [1]
