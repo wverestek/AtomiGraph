@@ -503,8 +503,8 @@ def remove_atoms_by_type(df:pd.core.frame.DataFrame=None, target_atoms:tuple[int
     df_work = df.copy(deep=True)
             
     for idx, row in df_work.iterrows():
-        # real copy to avoid modifying the original graph in self.frames
-        nxg = row["graph"]
+        # real copy: df.copy(deep=True) does not copy the nx.Graph objects
+        nxg = row["graph"].copy()
 
         if target_atoms is None:
             nodes = list(nxg.nodes())
@@ -515,8 +515,7 @@ def remove_atoms_by_type(df:pd.core.frame.DataFrame=None, target_atoms:tuple[int
 
         nxg.remove_nodes_from(nodes)
         
-        # update the graph in the DataFrame with the modified graph
-        # should be unnecessary since we are modifying the graph in place, but to be explicit:
+        # store the modified copy in the DataFrame
         df_work.at[idx, "graph"] = nxg
     
     # return independent DataFrame with modified graphs
@@ -549,7 +548,9 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
     nm = nx.isomorphism.categorical_node_match(node_attr, None)
 
     for idx, (df_idx, frame) in enumerate(df_work.iterrows()):
-        nxg = frame["graph"]
+        # real copy: df.copy(deep=True) does not copy the nx.Graph objects
+        nxg = frame["graph"].copy()
+        df_work.at[df_idx, "graph"] = nxg
         ncomp_before = nx.number_connected_components(nxg)
 
         # 3. Setup the GraphMatcher
