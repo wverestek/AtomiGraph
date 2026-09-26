@@ -91,8 +91,12 @@ pytest -m slow      # large example (04)
 
 ## Command line usage:
 
+After `pip install .` the command `AtomiGraph` is available (or use `python3 -m atomigraph.cli`):
+
 ```Bash
-tbd
+AtomiGraph -i 'bonds.reaxff.*.dump' -a 1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O -c 1 -b rxn_plots
+AtomiGraph -i 'pe_chain.*.data' -f lammps_data --plot-format png
+AtomiGraph --help
 ```
 
 ---
