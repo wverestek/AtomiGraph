@@ -48,11 +48,12 @@ Python 3 and the following modules:
 
 ## Installation
 
-Add the AtomiGraph base folder to your `PYTHONPATH`, e.g.:
-
 ```bash
-export PYTHONPATH=$PYTHONPATH:/path/to/AtomiGraph
+pip install /path/to/AtomiGraph             # package and the AtomiGraph command
+pip install -e "/path/to/AtomiGraph[dev]"   # editable, for development (incl. pytest)
 ```
+
+Without installing: add the base folder to `PYTHONPATH` (no `AtomiGraph` command then).
 
 ---
 
@@ -83,7 +84,7 @@ The examples in `examples/` double as validation cases; each README lists the ex
 - `04_PEEK_many_reactions`: large ReaxFF trajectory (1001 frames), regression values
 
 ```Bash
-pip install pytest  # dev dependency, see pyproject.toml
+pip install -e ".[dev]"
 pytest              # fast tests
 pytest -m slow      # large example (04)
 ```
@@ -101,19 +102,13 @@ AtomiGraph --help
 ```
 
 ---
-## Frame/Reaction sampling
-Frame comparison can be controlled via:
-- startstep: starting frame index
-- checkstep: compare frame i up to i + checkstep
-- framestep: increment between evaluations
+## Frame sampling
+Frame comparison is controlled by these `AtomiGraph` arguments:
+- `checkframe`: compare frame i with frame i - checkframe (default 1)
+- `stepframe`: frames between evaluations (default 1)
+- `stabiframes`: the last n frames are not evaluated (default 0)
 
-Example:
-startstep = 0
-checkstep = 1
-framestep = 5
-
--> compares:
-0 vs 1, 5 vs 6, 10 vs 11, ...
+Example: `checkframe=1, stepframe=5` compares 0 vs 1, 5 vs 6, 10 vs 11, ...
 
 ---
 
