@@ -1,0 +1,16 @@
+United-atom polyethylene chain (30 atoms), two LAMMPS data files (atom_style full):
+
+  pe_chain.0.data     intact chain, 29 bonds (timestep 0)
+  pe_chain.1000.data  bonds 8-9 and 21-22 broken, 27 bonds (timestep 1000)
+
+The numbers in the file names are intentional: the natural sort must put timestep 0 first.
+Regenerate with:  python3 gen.py .
+
+Expected result: 2 independent reactions (chain scissions) for rxn_bond_cutoff in {0, 1, 2}.
+The scission sites are 13 bonds apart, so the expanded reaction environments never overlap.
+
+Usage:
+  ag = AtomiGraph(infile="examples/03_PE_chain_scission/pe_chain.*.data", informat="lammps_data",
+                  rxn_bond_cutoff=1)
+  ag.read()
+  ag.find_reactions()

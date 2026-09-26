@@ -331,19 +331,18 @@ class AtomiGraph:
                     tmpsets.append(reacting_atoms1.union(reacting_atoms2))    # combine sets
                 log.debug(f"reacting_atoms_sets after expansion: {tmpsets}")
 
-                # more than one set, check if sets have common atoms after expansion
-                # and merge if necessary, otherwise just use the expanded sets as reaction sets
+                # more than one set, merge expanded sets that share atoms (transitively):
+                # one node per expanded set, edge if two sets intersect, union per connected component
                 if len(tmpsets) > 1:
-                    # merge sets that have common atoms after expansion
-                    log.debug(f"Merging: reacting_atoms_sets before merging: {reacting_atoms_core_sets}")
-                    for i,iset in enumerate(tmpsets):
-                        for j in range(i+1, nsets):
-                            inter_atoms = iset.intersection(reacting_atoms_core_sets[j])
-                            if len(inter_atoms) > 0:
-                                print(f"Merging sets {iset} and {tmpsets[j]} with common atoms {inter_atoms}")
-                                reacting_atoms_sets.append(iset.union(tmpsets[j]))
-                                #reacting_atoms_core_sets[j] = set()                     # remove from further consideration
-                                tmpsets[j] = set()                                      # remove from further consideration
+                    log.debug(f"Merging: reacting_atoms_sets before merging: {tmpsets}")
+                    Gmerge = nx.Graph()
+                    Gmerge.add_nodes_from(range(len(tmpsets)))
+                    for i in range(len(tmpsets)):
+                        for j in range(i+1, len(tmpsets)):
+                            if not tmpsets[i].isdisjoint(tmpsets[j]):
+                                Gmerge.add_edge(i, j)
+                    for component in nx.connected_components(Gmerge):
+                        reacting_atoms_sets.append(set().union(*(tmpsets[i] for i in component)))
                     log.debug(f"Merged: reacting_atoms_sets after merging:   {reacting_atoms_sets}")
 
                 else:
