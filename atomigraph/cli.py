@@ -4,7 +4,7 @@
 import sys
 import argparse
 
-from atomigraph.core import AtomiGraph, plot_reactions
+from atomigraph.core import AtomiGraph, write_reactions, plot_reactions
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -20,7 +20,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-a", "--atom-map", default="",
                         help="atom type to element mapping, e.g. '1:C,2:H,3:O'")
     parser.add_argument("-b", "--basename", default="",
-                        help="output folder for the plots (default: input file name without extension)")
+                        help="output basename: summary <basename>_rxnIDs.dat and plot folder <basename> "
+                             "(default: input file name without extension)")
     parser.add_argument("-c", "--cutoff", type=int, default=1,
                         help="rxn_bond_cutoff: bonds around the changed bonds that belong to a reaction (default: 1)")
     parser.add_argument("--checkframe", type=int, default=1, help="frame difference to check (default: 1)")
@@ -46,8 +47,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     print(f"{len(topo.rxns)} reaction(s) found, {topo.rxns['rxnID'].nunique()} unique.")
 
+    basename = args.basename or topo.basename
+    write_reactions(topo.rxns, filename=f"{basename}_rxnIDs.dat")
     if not args.no_plot:
-        plot_reactions(topo.rxns, basename=args.basename or topo.basename, outformat=args.plot_format)
+        plot_reactions(topo.rxns, basename=basename, outformat=args.plot_format)
     return 0
 
 

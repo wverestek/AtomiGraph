@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from atomigraph import AtomiGraph
+from atomigraph import AtomiGraph, write_reactions
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 PEEK_TYPE_MAP = "1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O"
 
 
 def run_example(tmp_path, monkeypatch, infile, **kwargs):
-    # find_reactions writes <basename>_rxnIDs.dat relative to cwd; keep it out of the repo
+    # run in tmp_path so that no output can end up in the repo
     monkeypatch.chdir(tmp_path)
     ag = AtomiGraph(infile=str(EXAMPLES / infile), **kwargs)
     ag.read()
@@ -62,3 +62,17 @@ def test_04_peek_many_reactions(tmp_path, monkeypatch, cutoff, n_rxns, n_unique)
     assert len(ag.frames) == 1001
     assert len(ag.rxns) == n_rxns
     assert ag.rxns["rxnID"].nunique() == n_unique
+
+
+def test_write_reactions(tmp_path, monkeypatch):
+    ag = run_example(tmp_path, monkeypatch, "01_PE_chain_basic/pe_chain.*.data",
+                     informat="lammps_data", rxn_bond_cutoff=1)
+    assert list(tmp_path.iterdir()) == []       # find_reactions itself writes nothing
+
+    write_reactions(ag.rxns, filename="pe_rxnIDs.dat")
+
+    lines = (tmp_path / "pe_rxnIDs.dat").read_text().splitlines()
+    assert lines[0].startswith("# Timestep\tRxnID\tRxnCount")
+    assert len(lines) == 1 + len(ag.rxns)
+    # first scission: one molecule before, two fragments after
+    assert lines[1].split("\t")[:4] == ["1000", "0", "1", "[[7, 8, 9, 10]]:[[7, 8], [9, 10]]"]

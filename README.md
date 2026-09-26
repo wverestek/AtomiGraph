@@ -68,6 +68,7 @@ net = ag.AtomiGraph(
 
 net.read()
 net.find_reactions()                     # reactions in net.rxns (pandas DataFrame)
+ag.write_reactions(net.rxns, filename="rxn_rxnIDs.dat")  # text summary, one line per reaction
 ag.plot_reactions(net.rxns, basename="rxn_plots", outformat="png")
 ```
 ---
