@@ -3,8 +3,9 @@ from pathlib import Path
 import pytest
 
 from atomigraph.reader import read_lammps_data
+from common import PE_DIR
 
-PE_DATA = Path(__file__).resolve().parents[1] / "examples" / "01_PE_chain_basic" / "pe_chain.0.data"
+PE_DATA = PE_DIR / "pe_chain.0.data"
 
 
 def write_variant(tmp_path, old, new):

@@ -1,6 +1,5 @@
 # python atomigraph/utils.py
 
-import os
 import warnings
 import networkx as nx
 

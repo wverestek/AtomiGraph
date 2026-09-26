@@ -1,15 +1,11 @@
 # python atomigraph/core.py
-#from fileinput import filename
 import os, os.path
-
-from networkx.algorithms.operators import union
-from networkx.drawing import draw
 os.environ.setdefault("MPLBACKEND", "Agg")
-import sys, re
+import re
 import warnings
 import random
 
-from typing import TextIO, Union, List
+from typing import Union, List
 
 import matplotlib
 # Use non-interactive backend to avoid Qt/X11 errors in headless environments
@@ -70,33 +66,33 @@ class AtomiGraph:
                  rxn_bond_cutoff: int = 1, plot_bonds_cutoff: int = 5, seed: int = 42,
                  ring_counter: bool = False, loop_limits:tuple[int,int]=None):
         """
-        A class to extract changes in bond topology over time.
+        Bond topology over time: read frames, find and analyse changes in bonding (reactions).
 
         infile : str or list[str]
-            A bond information file, a list of files, or glob pattern(s). The
-            reader will accept a single filename or multiple files. For
-            backward compatibility `self.infile` is the first filename (or "").
-        infile : str or list[str]
-            A bond information file, a list of files, or glob pattern(s). The
-            reader will accept a single filename or multiple files. For
-            backward compatibility `self.infile` is the first filename (or "").
+            file, list of files or glob pattern(s); read in natural order
         informat : str
-            file type of the file containing bond information. 
-            reaxff, lammps_data
-            Default "reaxff"
+            "reaxff" (fix reaxff/bonds output) or "lammps_data" (atom_style full). Default "reaxff"
         basename : str
-            base name for output. If not set the input file name is used as base name.
-        startstep : int
-            MD time step at start. Default: 0
-        stopstep : int
-            MD time step at end. Default: sys.maxsize (a very high umber)
+            output basename; default derived from infile (part before a wildcard, no extension)
+        atom_type_map : str
+            atom type to element, e.g. "1:C,2:H,3:O"; unmapped types become element "X"
         checkframe : int
-            Number of frames difference to check for changed bonds. Default: 1
+            compare frame i with frame i - checkframe. Default 1
         stepframe : int
-            Number of frames before the next evaluation is done. Default: 1
+            frames between evaluations. Default 1
+        stabiframes : int
+            the last stabiframes frames are not evaluated. Default 0
         hash_by : str
-            hash for each reaction that is build upon 'element' or 'type'. 
-            Hashes allow to identify if a similar reaction has already occured before or not.
+            node attribute ("type" or "element") for the reaction hashes that identify
+            recurring reactions. Default "type"
+        rxn_bond_cutoff : int
+            bonds around the changed bonds that belong to a reaction. Default 1
+        plot_bonds_cutoff : int
+            bonds around a reaction included in plots. Default 5
+        seed : int
+            random seed for reproducible plot layouts. Default 42
+        ring_counter, loop_limits
+            not used yet
         """
         
         log.info(f"Initializing AtomiGraph class object...")
@@ -546,8 +542,6 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
     Simplifies the graph by matching a template pattern and removing specific 
     nodes. Handles molecular symmetry by filtering unique node sets.
     """
-    from networkx.algorithms import isomorphism
-
     # 1. Sanity Check
     template_set = set(template_node_ids)
     delete_set = set(delete_node_ids)
@@ -663,7 +657,6 @@ def plot_reactions(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outfor
     digitsCount =  len(str(df["rxnCount"].max()))
 
     for idx, rxn in df.iterrows():
-        frame = rxn["frame"]
         timestep = rxn["timestep"]
         rxnID = rxn["rxnID"]
         rxnCount = rxn["rxnCount"]
