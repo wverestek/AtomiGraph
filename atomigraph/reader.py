@@ -3,7 +3,7 @@ import os.path
 import gzip
 import glob
 import re
-from typing import List, Tuple, Union
+from typing import List, Union
 
 import networkx as nx
 from .logger import log

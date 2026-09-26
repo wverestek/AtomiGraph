@@ -1,12 +1,9 @@
 # The examples double as validation cases; expected values are documented in each example README.
-from pathlib import Path
 
 import pytest
 
-from atomigraph import AtomiGraph, write_reactions
-
-EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
-PEEK_TYPE_MAP = "1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O"
+from atomigraph import AtomiGraph
+from common import EXAMPLES, PEEK_TYPE_MAP
 
 
 def run_example(tmp_path, monkeypatch, infile, **kwargs):
@@ -61,20 +58,6 @@ def test_04_peek_many_reactions(tmp_path, monkeypatch, cutoff, n_rxns, n_unique)
     assert len(topo.frames) == 101
     assert len(topo.rxns) == n_rxns
     assert topo.rxns["rxnID"].nunique() == n_unique
-
-
-def test_write_reactions(tmp_path, monkeypatch):
-    topo = run_example(tmp_path, monkeypatch, "01_PE_chain_basic/pe_chain.*.data",
-                       informat="lammps_data", rxn_bond_cutoff=1)
-    assert list(tmp_path.iterdir()) == []       # find_reactions itself writes nothing
-
-    write_reactions(topo.rxns, "pe")
-
-    lines = (tmp_path / "pe_rxnIDs.dat").read_text().splitlines()
-    assert lines[0].startswith("# Timestep\tRxnID\tRxnCount")
-    assert len(lines) == 1 + len(topo.rxns)
-    # first scission: one molecule before, two fragments after
-    assert lines[1].split("\t")[:4] == ["1000", "0", "1", "[[7, 8, 9, 10]]:[[7, 8], [9, 10]]"]
 
 
 @pytest.mark.parametrize("cutoff", [0, 1])
