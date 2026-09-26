@@ -1,6 +1,8 @@
 __pycache__/
 .pytest_cache/
-# output written by find_reactions() next to the input / in the working directory
+# output of write_reactions()
 *_rxnIDs.dat
 build/
 *.egg-info/
+# output of examples/05_epoxy_network/run_ag.py
+examples/05_epoxy_network/fractions.*

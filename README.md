@@ -91,6 +91,7 @@ The examples in `examples/` double as validation cases; each README lists the ex
 - `02_PEEK_one_reaction`: small ReaxFF trajectory with a single bond formation
 - `03_PEEK_multiple_files`: same trajectory split into one file per frame (glob input)
 - `04_PEEK_many_reactions`: longer ReaxFF trajectory (101 frames), regression values
+- `05_epoxy_network`: epoxy curing (LAMMPS data files) with a network analysis script (`run_ag.py`)
 
 ```Bash
 pip install -e ".[dev]"

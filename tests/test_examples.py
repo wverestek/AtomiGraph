@@ -75,3 +75,31 @@ def test_write_reactions(tmp_path, monkeypatch):
     assert len(lines) == 1 + len(topo.rxns)
     # first scission: one molecule before, two fragments after
     assert lines[1].split("\t")[:4] == ["1000", "0", "1", "[[7, 8, 9, 10]]:[[7, 8], [9, 10]]"]
+
+
+@pytest.mark.parametrize("cutoff", [0, 1])
+def test_05_epoxy_network_reactions(tmp_path, monkeypatch, cutoff):
+    topo = run_example(tmp_path, monkeypatch, "05_epoxy_network/*.data", informat="lammps_data",
+                       rxn_bond_cutoff=cutoff)
+
+    assert len(topo.frames) == 19
+    assert topo.frames["timestep"].is_monotonic_increasing
+    assert topo.rxns.groupby("timestep").size().tolist() == [1] * 18
+
+
+def test_05_epoxy_network_script(tmp_path, monkeypatch):
+    # run the analysis script on a copy, so that its output stays out of the repo
+    import runpy, shutil
+    src = EXAMPLES / "05_epoxy_network"
+    for f in [*src.glob("*.data"), src / "run_ag.py"]:
+        shutil.copy(f, tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    ns = runpy.run_path("run_ag.py")
+
+    assert [g.number_of_nodes() for g in ns["topo"].frames["graph"]] == [195] * 19
+    fractions = ns["fractions"]
+    parts = ["cores", "connecting", "dangling", "sol"]
+    assert (fractions[parts].sum(axis=1).round(6) == 100).all()
+    assert fractions.iloc[-1][parts].round(1).tolist() == [71.3, 0.0, 8.7, 20.0]
+    assert (tmp_path / "fractions.csv").exists() and (tmp_path / "fractions.png").exists()
