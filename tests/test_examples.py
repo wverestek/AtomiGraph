@@ -102,4 +102,5 @@ def test_05_epoxy_network_script(tmp_path, monkeypatch):
     parts = ["cores", "connecting", "dangling", "sol"]
     assert (fractions[parts].sum(axis=1).round(6) == 100).all()
     assert fractions.iloc[-1][parts].round(1).tolist() == [71.3, 0.0, 8.7, 20.0]
-    assert (tmp_path / "fractions.csv").exists() and (tmp_path / "fractions.png").exists()
+    assert (tmp_path / "fractions.png").exists()
+    assert (tmp_path / "fractions.csv").read_text() == (src / "fractions_reference.csv").read_text()

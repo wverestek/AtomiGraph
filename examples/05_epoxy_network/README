@@ -6,8 +6,8 @@ run_ag.py is a network analysis script:
   isomorphic pattern removal (remove_atoms_by_pattern), 275 -> 195 nodes per frame
 - splits each frame into giant component (cores, connecting, dangling) and sol fraction and
   computes size, cyclomatic number, diameter, average path length, clustering, cycle basis
-- writes fractions.csv and fractions.png (node fractions over timestep); the committed files are
-  the reference result, git diff shows changes after a rerun
+- writes fractions.csv and fractions.png (node fractions over timestep); reference result:
+  fractions_reference.csv/.png, compare with  diff fractions.csv fractions_reference.csv
 
 Run in this folder:  python3 run_ag.py
 
