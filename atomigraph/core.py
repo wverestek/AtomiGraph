@@ -777,8 +777,7 @@ def find_minimum_cycle_basis(df: pd.DataFrame = None, min_size: int = 7, max_blo
     decomposing the graph into biconnected components. 
 
     Args:
-        df (pd.DataFrame, optional): Input DataFrame containing 'graph' column. 
-            Defaults to self.backbone or self.frames.
+        df (pd.DataFrame): DataFrame with a 'graph' column, e.g. topo.frames.
         min_size (int): Minimum number of nodes for a cycle to be included.
         max_block_size (int, optional): Safety threshold. Blocks with more nodes 
             than this will be skipped to avoid O(n^3) complexity stalls.
