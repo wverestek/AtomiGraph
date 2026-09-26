@@ -33,7 +33,7 @@ configure_log(level="DEBUG", force=True)
 
 __all__ = ['DEFAULT_COLOR', 'ELEM2HEX', 'ON2ELEM', 'ON2HEX', 
            'AtomiGraph',
-           'renumber_and_count_rxns', 'filter_transient_reactions', 'remove_atoms_by_type', 'remove_atoms_by_pattern', 
+           'renumber_and_count_reactions', 'filter_transient_reactions', 'remove_atoms_by_type', 'remove_atoms_by_pattern', 
            'write_reactions', 'plot_reactions', 'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
 
 
@@ -285,7 +285,7 @@ class AtomiGraph:
 
         #self.df1 = df_file.copy()
         # renumber reactions and count unique reactions
-        self.rxns = renumber_and_count_rxns(self.rxns)
+        self.rxns = renumber_and_count_reactions(self.rxns)
 
     # find reacting atoms for two frames #
     def _find_reacting_atoms_for_two_frames(self,Gbefore:nx.Graph,Gafter:nx.Graph):
@@ -408,7 +408,7 @@ class AtomiGraph:
 
 ## work on reactions and topology ##
 # renumber reactions and count unique reactions #
-def renumber_and_count_rxns(df:pd.core.frame.DataFrame=None) -> pd.core.frame.DataFrame:
+def renumber_and_count_reactions(df:pd.core.frame.DataFrame=None) -> pd.core.frame.DataFrame:
     """
     Renumber reactions and count unique reactions based on their hashes in pandas DataFrame. 
     This method updates two columns of the DataFrame: 'rxnID' and 'rxnCount'.
