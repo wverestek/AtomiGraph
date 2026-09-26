@@ -466,33 +466,33 @@ def filter_transient_reactions(df:pd.core.frame.DataFrame=None, nframes:int=None
     # operate on a copy to avoid surprising in-place side effects for caller
     df_work = df.copy()
         
+    # each reaction can cancel at most one reverse reaction; consumed rows are skipped,
+    # so A->B, B->A, A->B removes the first pair and keeps the net reaction A->B
     rmv_idx = []
+    consumed = set()
+    atoms_env = df_work["atoms_env"].map(tuple)     # list comparison: convert to tuple
     for idx,row in df_work.iterrows():
-        hash_before = row["rxn_hash_before"]
-        hash_after = row["rxn_hash_after"]
+        if idx in consumed:
+            continue
         current_frame = row["frame"]
         max_frame = current_frame + nframes
-        
+
         mask_frame = df_work["frame"].gt(current_frame) & df_work["frame"].le(max_frame)
-        mask_hash = (df_work["rxn_hash_before"] == hash_after) & (df_work["rxn_hash_after"] == hash_before)
-        # list comparison: convert to tuple
-        target_atoms = tuple(row["atoms_env"])
-        mask_atoms = df_work["atoms_env"].map(tuple) == target_atoms
-        mask = mask_frame & mask_hash & mask_atoms
-        tmp = np.where(mask)[0]
-        if len(tmp) > 0:
-            rev_idx = tmp[0]
-            rmv_idx.append(idx)
-            rmv_idx.append(rev_idx)
-    
+        mask_hash = (df_work["rxn_hash_before"] == row["rxn_hash_after"]) & (df_work["rxn_hash_after"] == row["rxn_hash_before"])
+        mask_atoms = atoms_env == tuple(row["atoms_env"])
+        mask_free = ~df_work.index.isin(consumed)
+        candidates = df_work.index[mask_frame & mask_hash & mask_atoms & mask_free]
+        if len(candidates) > 0:
+            # earliest reverse reaction, as index label
+            rev_idx = df_work.loc[candidates, "frame"].idxmin()
+            consumed.update((idx, rev_idx))
+            rmv_idx.extend((idx, rev_idx))
+
+    # removed reactions in original order
+    df_rmv = df_work.loc[df_work.index.isin(rmv_idx)]
+    df_work = df_work.drop(index=rmv_idx)
     if len(rmv_idx) > 0:
         log.info(f"{len(rmv_idx)} Reaction(s) found that reverse within {nframes} frames, removing reactions")
-        df_rmv = df_work.drop(rmv_idx, inplace=True)
-        #df_work = renumber_and_count_rxns(df_work)
-        #df_rmv  = renumber_and_count_rxns(df_rmv)
-    else:
-        #df_work = renumber_and_count_rxns(df_work)
-        df_rmv = None
 
     return df_work, df_rmv
 
