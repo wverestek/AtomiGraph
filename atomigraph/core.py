@@ -153,15 +153,17 @@ class AtomiGraph:
         ts, nxg = read_bonds(infile_local, informat_local)
 
         # set element attribute for each node in each graph
-        for i,g in enumerate(nxg):
+        unmapped_types = set()
+        for g in nxg:
             for n, data in g.nodes(data=True):
                 atom_type = data.get("type", None)
                 if atom_type is not None and atom_type in self.type2on:
-                    element = self.type2on[atom_type]
-                    nx.set_node_attributes(nxg[i], {n: element}, name="element")
+                    data["element"] = self.type2on[atom_type]
                 else:
-                    nx.set_node_attributes(nxg[i], {n: "X"}, name="element")
-                    log.warn(f"Warning: atom type {atom_type} not in atom_type_mapping, setting element to 'X'",stacklevel=2)
+                    data["element"] = "X"
+                    unmapped_types.add(atom_type)
+        if unmapped_types:
+            log.warning(f"atom type(s) {sorted(unmapped_types, key=lambda t: (t is None, t or 0))} not in atom_type_map, element set to 'X'")
         
         frames_arr = list(range(len(ts)))
         if self.frames.empty:
@@ -269,7 +271,7 @@ class AtomiGraph:
                 if df_frame is not None and not df_frame.empty:
                     df_file = pd.concat([df_file, df_frame], ignore_index=True)
                 else:
-                    log.warn("You should not be here. Maybe you have discovered a bug. Please consider reporting with a minimal example")
+                    log.warning("You should not be here. Maybe you have discovered a bug. Please consider reporting with a minimal example")
 
         
         # adding newly found reactions to self.rxns DataFrame
@@ -616,7 +618,7 @@ def write_reactions(df:pd.core.frame.DataFrame, filename:str="AtomiGraph_rxnIDs.
 def plot_reactions(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:str="pdf") -> None:
     # check if DataFrame is empty
     if df.empty:
-        log.warn("No reactions found to plot.")
+        log.warning("No reactions found to plot.")
         return
 
     outfolder = basename or "AtomiGraph_outdir"
