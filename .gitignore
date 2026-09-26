@@ -2,3 +2,5 @@ __pycache__/
 .pytest_cache/
 # output written by find_reactions() next to the input / in the working directory
 *_rxnIDs.dat
+build/
+*.egg-info/

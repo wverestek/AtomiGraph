@@ -34,7 +34,7 @@ configure_log(level="DEBUG", force=True)
 __all__ = ['DEFAULT_COLOR', 'ELEM2HEX', 'ON2ELEM', 'ON2HEX', 
            'AtomiGraph',
            'renumber_and_count_rxns', 'filter_transient_reactions', 'remove_atoms_by_type', 'remove_atoms_by_pattern', 
-           'plot_reactions', 'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
+           'write_reactions', 'plot_reactions', 'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
 
 
 class AtomiGraph:
@@ -217,7 +217,7 @@ class AtomiGraph:
             rxn_hash_before, rxn_hash_after  WL hashes of atoms_env before / after
 
         If no reaction is found at all, self.rxns is None.
-        Opens <basename>_rxnIDs.dat for a text summary; per-reaction lines are not written yet.
+        Use write_reactions(self.rxns) for a text summary and plot_reactions(self.rxns) for plots.
 
         Example:
             net = AtomiGraph(infile="bonds.reaxff.dump", atom_type_map="1:C,2:H,3:O")
@@ -235,10 +235,6 @@ class AtomiGraph:
             log.warning(f"Timesteps are not monotonic increasing!!!")
 
         log.info("Searching reactions...")
-        f_rxn:TextIO = open(self.basename + "_rxnIDs.dat", "wt")
-        mystr = "# Timestep \t RxnID \t RxnCount \t FromIDs:ToIDs \t FromType:ToType \t FromElem:ToElem \t Rxn_hashes"
-        print(mystr)
-        f_rxn.write(mystr+"\n")
         
 
         start = 0 
@@ -275,7 +271,6 @@ class AtomiGraph:
                 else:
                     log.warn("You should not be here. Maybe you have discovered a bug. Please consider reporting with a minimal example")
 
-        f_rxn.close()
         
         # adding newly found reactions to self.rxns DataFrame
         # first search
@@ -588,6 +583,34 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
             log.warning(f"Index {idx}: Network is no longer fully connected! Fragments: {ncomp_before} vs. {ncomp_after}")
     
     return df_work
+
+# write reactions #
+def write_reactions(df:pd.core.frame.DataFrame, filename:str="AtomiGraph_rxnIDs.dat") -> None:
+    """
+    Write a tab-separated summary with one line per reaction:
+    timestep, rxnID, rxnCount, molecules before:after as atom IDs, atom types and elements,
+    and the reaction hashes before:after. Molecules are the connected parts of the reaction
+    environment (atoms_env) in the frame before and after the reaction.
+    """
+    header = "# Timestep\tRxnID\tRxnCount\tFromIDs:ToIDs\tFromType:ToType\tFromElem:ToElem\tRxn_hashes"
+    with open(filename, "wt") as f:
+        f.write(header + "\n")
+        if df is None or df.empty:
+            log.warning("No reactions found to write.")
+            return
+        for _, rxn in df.iterrows():
+            ids, types, elems = [], [], []
+            for G in (rxn["Gbefore"], rxn["Gafter"]):
+                mols = sorted(sorted(c) for c in nx.connected_components(G.subgraph(rxn["atoms_env"])))
+                ids.append(mols)
+                types.append([[G.nodes[a].get("type") for a in m] for m in mols])
+                elems.append([[G.nodes[a].get("element") for a in m] for m in mols])
+            fields = [rxn["timestep"], rxn["rxnID"], rxn["rxnCount"],
+                      f"{ids[0]}:{ids[1]}", f"{types[0]}:{types[1]}", f"{elems[0]}:{elems[1]}",
+                      f"{rxn['rxn_hash_before']}:{rxn['rxn_hash_after']}"]
+            f.write("\t".join(str(x) for x in fields) + "\n")
+    log.info(f"{len(df)} reaction(s) written to {filename}")
+
 
 # plot reactions #
 def plot_reactions(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:str="pdf") -> None:

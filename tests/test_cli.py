@@ -14,6 +14,7 @@ def test_cli_finds_and_plots_reactions(tmp_path, monkeypatch, capsys):
     assert rc == 0
     assert "5 reaction(s) found" in capsys.readouterr().out
     assert len(list((tmp_path / "plots").iterdir())) == 5
+    assert len((tmp_path / "plots_rxnIDs.dat").read_text().splitlines()) == 1 + 5
 
 
 def test_cli_accepts_multiple_files(tmp_path, monkeypatch, capsys):

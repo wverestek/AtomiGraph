@@ -9,7 +9,7 @@ EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "02_PEEK_one_reacti
 
 @pytest.fixture
 def rxns(tmp_path, monkeypatch):
-    # find_reactions and the plots write relative to cwd; keep them out of the repo
+    # the plots are written relative to cwd; keep them out of the repo
     monkeypatch.chdir(tmp_path)
     net = ag.AtomiGraph(infile=str(EXAMPLE), atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O")
     net.read()
