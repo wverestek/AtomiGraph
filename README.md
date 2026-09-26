@@ -73,6 +73,10 @@ topo.write_reactions()          # <basename>_rxnIDs.dat, one line per reaction
 topo.plot_reactions("png")      # plots in folder <basename>
 ```
 
+`infile` takes a file, a list of files or a glob pattern; files are read in natural order
+(0, 2, 10). A warning is logged if the names do not form one numbered series. To skip files
+such as `equi.data`, use e.g. `"*[0-9].data"` instead of `"*.data"`.
+
 The output basename is derived from the input (here `bonds.reaxff`) unless `basename=...` is given.
 For another reaction DataFrame, e.g. after `filter_transient_reactions`, use the functions
 `ag.write_reactions(df, basename)` and `ag.plot_reactions(df, basename, outformat)`.
