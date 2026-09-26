@@ -1,6 +1,6 @@
 [project]
 name = "AtomiGraph"
-version = "0.0.1"
+version = "0.0.2"
 description = "Atomistic Graph Analysis and Visualization tool for bond topology on top of NetworkX"
 authors = [{name="Wolfgang Verestek"}]
 license = {text="AtomiGraph Non-Commercial License: free for non-commercial and academic use, see LICENSE"}
