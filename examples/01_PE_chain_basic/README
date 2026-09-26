@@ -25,8 +25,8 @@ apart); for cutoff >= 1 their environments overlap and are merged into one react
 
 Usage:
   from atomigraph import AtomiGraph
-  ag = AtomiGraph(infile="examples/01_PE_chain_basic/pe_chain.*.data", informat="lammps_data",
-                  rxn_bond_cutoff=1)
-  ag.read()
-  ag.find_reactions()
-  print(ag.rxns[["timestep", "edges_before", "edges_after"]])
+  topo = AtomiGraph(infile="examples/01_PE_chain_basic/pe_chain.*.data", informat="lammps_data",
+                    rxn_bond_cutoff=1)
+  topo.read()
+  topo.find_reactions()
+  print(topo.rxns[["timestep", "edges_before", "edges_after"]])

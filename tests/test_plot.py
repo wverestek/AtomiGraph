@@ -11,10 +11,10 @@ EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "02_PEEK_one_reacti
 def rxns(tmp_path, monkeypatch):
     # the plots are written relative to cwd; keep them out of the repo
     monkeypatch.chdir(tmp_path)
-    net = ag.AtomiGraph(infile=str(EXAMPLE), atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O")
-    net.read()
-    net.find_reactions()
-    return net.rxns
+    topo = ag.AtomiGraph(infile=str(EXAMPLE), atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O")
+    topo.read()
+    topo.find_reactions()
+    return topo.rxns
 
 
 def test_plot_reactions_writes_one_file_per_reaction(tmp_path, rxns):
@@ -41,13 +41,13 @@ def test_plot_unmapped_atom_types(tmp_path, monkeypatch):
     # without atom_type_map every atom gets element "X" and the fallback color
     monkeypatch.chdir(tmp_path)
     infile = EXAMPLE.parents[1] / "01_PE_chain_basic" / "pe_chain.*.data"
-    net = ag.AtomiGraph(infile=str(infile), informat="lammps_data")
-    net.read()
-    net.find_reactions()
+    topo = ag.AtomiGraph(infile=str(infile), informat="lammps_data")
+    topo.read()
+    topo.find_reactions()
 
-    ag.plot_reactions(net.rxns, basename="rxn_plots", outformat="png")
+    ag.plot_reactions(topo.rxns, basename="rxn_plots", outformat="png")
 
-    assert len(list((tmp_path / "rxn_plots").iterdir())) == len(net.rxns)
+    assert len(list((tmp_path / "rxn_plots").iterdir())) == len(topo.rxns)
 
 
 def test_write_and_plot_methods_use_basename(tmp_path, monkeypatch):

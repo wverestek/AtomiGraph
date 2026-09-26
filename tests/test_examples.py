@@ -12,10 +12,10 @@ PEEK_TYPE_MAP = "1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O"
 def run_example(tmp_path, monkeypatch, infile, **kwargs):
     # run in tmp_path so that no output can end up in the repo
     monkeypatch.chdir(tmp_path)
-    ag = AtomiGraph(infile=str(EXAMPLES / infile), **kwargs)
-    ag.read()
-    ag.find_reactions()
-    return ag
+    topo = AtomiGraph(infile=str(EXAMPLES / infile), **kwargs)
+    topo.read()
+    topo.find_reactions()
+    return topo
 
 
 @pytest.mark.parametrize("cutoff, expected", [
@@ -24,13 +24,13 @@ def run_example(tmp_path, monkeypatch, infile, **kwargs):
     (2, {1000: 2, 2000: 1, 3000: 1, 4000: 1}),
 ])
 def test_01_pe_chain_basic(tmp_path, monkeypatch, cutoff, expected):
-    ag = run_example(tmp_path, monkeypatch, "01_PE_chain_basic/pe_chain.*.data",
-                     informat="lammps_data", rxn_bond_cutoff=cutoff)
+    topo = run_example(tmp_path, monkeypatch, "01_PE_chain_basic/pe_chain.*.data",
+                       informat="lammps_data", rxn_bond_cutoff=cutoff)
 
-    assert list(ag.frames["timestep"]) == [0, 1000, 2000, 3000, 4000]
-    assert ag.rxns.groupby("timestep").size().to_dict() == expected
+    assert list(topo.frames["timestep"]) == [0, 1000, 2000, 3000, 4000]
+    assert topo.rxns.groupby("timestep").size().to_dict() == expected
 
-    by_ts = ag.rxns.groupby("timestep")
+    by_ts = topo.rxns.groupby("timestep")
     assert sorted(map(sorted, by_ts.get_group(1000)["atoms_rxn"])) == [[8, 9], [21, 22]]
     assert list(by_ts.get_group(2000)["edges_after"]) == [[{8, 22}]]
     rxn_3000 = by_ts.get_group(3000).iloc[0]
@@ -42,12 +42,12 @@ def test_01_pe_chain_basic(tmp_path, monkeypatch, cutoff, expected):
                                     "03_PEEK_multiple_files/bonds.reaxff.*.dump"])
 @pytest.mark.parametrize("cutoff", [0, 1, 2])
 def test_02_03_peek_one_reaction(tmp_path, monkeypatch, infile, cutoff):
-    ag = run_example(tmp_path, monkeypatch, infile,
-                     atom_type_map=PEEK_TYPE_MAP, rxn_bond_cutoff=cutoff)
+    topo = run_example(tmp_path, monkeypatch, infile,
+                       atom_type_map=PEEK_TYPE_MAP, rxn_bond_cutoff=cutoff)
 
-    assert list(ag.frames["timestep"]) == [0, 1000, 2000]
-    assert len(ag.rxns) == 1
-    rxn = ag.rxns.iloc[0]
+    assert list(topo.frames["timestep"]) == [0, 1000, 2000]
+    assert len(topo.rxns) == 1
+    rxn = topo.rxns.iloc[0]
     assert rxn["timestep"] == 2000
     assert (rxn["edges_before"], rxn["edges_after"]) == ([], [{703, 719}])
 
@@ -56,23 +56,23 @@ def test_02_03_peek_one_reaction(tmp_path, monkeypatch, infile, cutoff):
 @pytest.mark.parametrize("cutoff, n_rxns, n_unique", [(0, 859, 38), (1, 856, 123)])
 def test_04_peek_many_reactions(tmp_path, monkeypatch, cutoff, n_rxns, n_unique):
     # regression values recorded with the current code, not independently validated
-    ag = run_example(tmp_path, monkeypatch, "04_PEEK_many_reactions/bonds.reaxff.dump",
-                     atom_type_map=PEEK_TYPE_MAP, rxn_bond_cutoff=cutoff)
+    topo = run_example(tmp_path, monkeypatch, "04_PEEK_many_reactions/bonds.reaxff.dump",
+                       atom_type_map=PEEK_TYPE_MAP, rxn_bond_cutoff=cutoff)
 
-    assert len(ag.frames) == 1001
-    assert len(ag.rxns) == n_rxns
-    assert ag.rxns["rxnID"].nunique() == n_unique
+    assert len(topo.frames) == 1001
+    assert len(topo.rxns) == n_rxns
+    assert topo.rxns["rxnID"].nunique() == n_unique
 
 
 def test_write_reactions(tmp_path, monkeypatch):
-    ag = run_example(tmp_path, monkeypatch, "01_PE_chain_basic/pe_chain.*.data",
-                     informat="lammps_data", rxn_bond_cutoff=1)
+    topo = run_example(tmp_path, monkeypatch, "01_PE_chain_basic/pe_chain.*.data",
+                       informat="lammps_data", rxn_bond_cutoff=1)
     assert list(tmp_path.iterdir()) == []       # find_reactions itself writes nothing
 
-    write_reactions(ag.rxns, "pe")
+    write_reactions(topo.rxns, "pe")
 
     lines = (tmp_path / "pe_rxnIDs.dat").read_text().splitlines()
     assert lines[0].startswith("# Timestep\tRxnID\tRxnCount")
-    assert len(lines) == 1 + len(ag.rxns)
+    assert len(lines) == 1 + len(topo.rxns)
     # first scission: one molecule before, two fragments after
     assert lines[1].split("\t")[:4] == ["1000", "0", "1", "[[7, 8, 9, 10]]:[[7, 8], [9, 10]]"]
