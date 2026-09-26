@@ -11,6 +11,6 @@ formation of the bond 703-719 (identical to 02_PEEK_one_reaction).
 Usage:
   from atomigraph import AtomiGraph
   ag = AtomiGraph(infile="examples/03_PEEK_multiple_files/bonds.reaxff.*.dump",
-                  atom_type_map="1:6,2:1,3:1,4:8,5:8,6:8,7:8,8:8")
+                  atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O")
   ag.read()
   ag.find_reactions()
