@@ -6,6 +6,7 @@ from networkx.algorithms.operators import union
 from networkx.drawing import draw
 os.environ.setdefault("MPLBACKEND", "Agg")
 import sys, re
+import warnings
 import random
 
 from typing import TextIO, Union, List
@@ -33,7 +34,7 @@ configure_log(level="DEBUG", force=True)
 __all__ = ['DEFAULT_COLOR', 'ELEM2HEX', 'ON2ELEM', 'ON2HEX', 
            'AtomiGraph',
            'renumber_and_count_rxns', 'filter_transient_reactions', 'remove_atoms_by_type', 'remove_atoms_by_pattern', 
-           'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
+           'plot_reactions', 'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
 
 
 class AtomiGraph:
@@ -595,7 +596,7 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
     return df_work
 
 # plot reactions #
-def plot_rxns(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:str="pdf") -> None:
+def plot_reactions(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:str="pdf") -> None:
     # check if DataFrame is empty
     if df.empty:
         log.warn("No reactions found to plot.")
@@ -696,6 +697,14 @@ def plot_rxns(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:s
         fig = plt.gcf()
         plt.close(fig)
 
+
+
+# deprecated alias, kept for backward compatibility #
+def plot_rxns(*args, **kwargs) -> None:
+    """Deprecated: use plot_reactions()."""
+    warnings.warn("plot_rxns() is deprecated, use plot_reactions() instead",
+                  DeprecationWarning, stacklevel=2)
+    return plot_reactions(*args, **kwargs)
 
 
 ## analyze topology ##

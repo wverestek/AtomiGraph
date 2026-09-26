@@ -67,8 +67,8 @@ net = ag.AtomiGraph(
 )
 
 net.read()
-net.find_rxns()
-net.plot_rxns()
+net.find_reactions()                     # reactions in net.rxns (pandas DataFrame)
+ag.plot_reactions(net.rxns, basename="rxn_plots", outformat="png")
 ```
 ---
 

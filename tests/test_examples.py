@@ -6,7 +6,7 @@ import pytest
 from atomigraph import AtomiGraph
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
-PEEK_TYPE_MAP = "1:6,2:1,3:1,4:8,5:8,6:8,7:8,8:8"
+PEEK_TYPE_MAP = "1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O"
 
 
 def run_example(tmp_path, monkeypatch, infile, **kwargs):
