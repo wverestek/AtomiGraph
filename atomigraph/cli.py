@@ -29,6 +29,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plot-format", default="pdf", choices=["pdf", "png"],
                         help="file format of the reaction plots (default: pdf)")
     parser.add_argument("--no-plot", action="store_true", help="only find reactions, do not plot")
+    # ring counting disabled: count_rings() does not exist yet, see find_minimum_cycle_basis()
+    #parser.add_argument("--count-rings", action="store_true", help="Count ring structures")
+    #parser.add_argument("--ring-limits", default="3:10", help="Min:Max ring size")
     args = parser.parse_args(argv)
 
     infile = args.input[0] if len(args.input) == 1 else args.input
@@ -51,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
     write_reactions(topo.rxns, filename=f"{basename}_rxnIDs.dat")
     if not args.no_plot:
         plot_reactions(topo.rxns, basename=basename, outformat=args.plot_format)
+    #if args.count_rings:
+    #    limits = tuple(map(int, args.ring_limits.split(":")))
+    #    topo.count_rings(ring_limits=limits)
     return 0
 
 
