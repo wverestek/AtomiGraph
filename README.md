@@ -48,11 +48,12 @@ Python 3 and the following modules:
 
 ## Installation
 
-Add the AtomiGraph base folder to your `PYTHONPATH`, e.g.:
-
 ```bash
-export PYTHONPATH=$PYTHONPATH:/path/to/AtomiGraph
+pip install /path/to/AtomiGraph             # package and the AtomiGraph command
+pip install -e "/path/to/AtomiGraph[dev]"   # editable, for development (incl. pytest)
 ```
+
+Without installing: add the base folder to `PYTHONPATH` (no `AtomiGraph` command then).
 
 ---
 
@@ -61,37 +62,62 @@ export PYTHONPATH=$PYTHONPATH:/path/to/AtomiGraph
 ```python3
 import atomigraph as ag
 
-net = ag.AtomiGraph(
+topo = ag.AtomiGraph(
     infile="bonds.reaxff.dump",
     atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O"
 )
 
-net.read()
-net.find_rxns()
-net.plot_rxns()
+topo.read()
+topo.find_reactions()           # reactions in topo.rxns (pandas DataFrame)
+topo.write_reactions()          # <basename>_rxnIDs.dat, one line per reaction
+topo.plot_reactions("png")      # plots in folder <basename>
 ```
+
+`infile` takes a file, a list of files or a glob pattern; files are read in natural order
+(0, 2, 10). A warning is logged if the names do not form one numbered series. To skip files
+such as `equi.data`, use e.g. `"*[0-9].data"` instead of `"*.data"`.
+
+The output basename is derived from the input (here `bonds.reaxff`) unless `basename=...` is given.
+For another reaction DataFrame, e.g. after `filter_transient_reactions`, use the functions
+`ag.write_reactions(df, basename)` and `ag.plot_reactions(df, basename, outformat)`.
+
+---
+
+## Examples and tests
+
+The examples in `examples/` double as validation cases; each README lists the expected result:
+
+- `01_PE_chain_basic`: synthetic united-atom PE chain (LAMMPS data files): bond scission, formation and flip
+- `02_PEEK_one_reaction`: small ReaxFF trajectory with a single bond formation
+- `03_PEEK_multiple_files`: same trajectory split into one file per frame (glob input)
+- `04_PEEK_many_reactions`: longer ReaxFF trajectory (101 frames), regression values
+- `05_epoxy_network`: epoxy curing (LAMMPS data files) with a network analysis script (`run_ag.py`)
+
+```Bash
+pip install -e ".[dev]"
+pytest
+```
+
 ---
 
 ## Command line usage:
 
+After `pip install .` the command `AtomiGraph` is available (or use `python3 -m atomigraph.cli`):
+
 ```Bash
-tbd
+AtomiGraph -i 'bonds.reaxff.*.dump' -a 1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O -c 1 -b rxn_plots
+AtomiGraph -i 'pe_chain.*.data' -f lammps_data --plot-format png
+AtomiGraph --help
 ```
 
 ---
-## Frame/Reaction sampling
-Frame comparison can be controlled via:
-- startstep: starting frame index
-- checkstep: compare frame i up to i + checkstep
-- framestep: increment between evaluations
+## Frame sampling
+Frame comparison is controlled by these `AtomiGraph` arguments:
+- `checkframe`: compare frame i with frame i - checkframe (default 1)
+- `stepframe`: frames between evaluations (default 1)
+- `stabiframes`: the last n frames are not evaluated (default 0)
 
-Example:
-startstep = 0
-checkstep = 1
-framestep = 5
-
--> compares:
-0 vs 1, 5 vs 6, 10 vs 11, ...
+Example: `checkframe=1, stepframe=5` compares 0 vs 1, 5 vs 6, 10 vs 11, ...
 
 ---
 

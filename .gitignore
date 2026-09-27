@@ -1,0 +1,9 @@
+__pycache__/
+.pytest_cache/
+# output of write_reactions()
+*_rxnIDs.dat
+build/
+*.egg-info/
+# output of examples/05_epoxy_network/run_ag.py, compare with fractions_reference.*
+examples/05_epoxy_network/fractions.csv
+examples/05_epoxy_network/fractions.png

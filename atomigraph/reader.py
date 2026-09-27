@@ -3,7 +3,7 @@ import os.path
 import gzip
 import glob
 import re
-from typing import List, Tuple, Union
+from typing import List, Union
 
 import networkx as nx
 from .logger import log
@@ -14,21 +14,12 @@ from .logger import log
 def _natural_key(path: str):
     """
     Natural sort key for file paths similar to `ls -v`.
-    Splits the basename into alternating non-digit and digit parts and
-    returns a tuple where digit parts are ints (so 8 < 10).
-    Works independent of differing name prefixes.
+    Splits the basename into digit and non-digit parts; digit parts compare as ints
+    (so 8 < 10) and sort before text, so mixed names like '0.data', 'equi.data' work.
     """
     name = os.path.basename(path)
-    parts = re.findall(r'\d+|\D+', name)
-    key = []
-    for p in parts:
-        if p.isdigit():
-            # preserve numeric ordering, handle big integers
-            key.append(int(p))
-        else:
-            # case-insensitive text ordering
-            key.append(p.lower())
-    return tuple(key)
+    return tuple((0, int(p), "") if p.isdigit() else (1, 0, p.lower())
+                 for p in re.findall(r'\d+|\D+', name))
 
 
 def _expand_infiles(infile: Union[str, List[str]]) -> List[str]:
@@ -70,6 +61,10 @@ def _expand_infiles(infile: Union[str, List[str]]) -> List[str]:
 
     # perform version-aware (natural) sort across all resolved files
     unique_files.sort(key=_natural_key)
+    # names that differ in more than their numbers are probably not one series
+    names = [os.path.basename(f) for f in unique_files]
+    if len({re.sub(r"\d+", "#", n) for n in names}) > 1:
+        log.warning(f"input files do not form one numbered series, check the order: {names}")
     return unique_files
 
 ##########################
@@ -207,7 +202,7 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
             #print("process: ",line.strip())
             # header section
             if "timestep =" in line:
-                ts = int(line.strip().split()[-1])              # should be last position in standard data file
+                ts = int(re.search(r"timestep\s*=\s*(\d+)", line).group(1))    # may be followed by ", units = ..."
             elif line.startswith("#") or len(line.strip())==0:
                 pass
             elif "atoms" in line:
@@ -302,9 +297,8 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
                             elif pos[idx][2] > zhi:
                                 while pos[idx][2] > zhi: pos[idx][2] -= (zhi-zlo)
                 else:
-                    #log.error("")
-                    print("ERROR: unknown atom style")
-                    sys.exit(0) 
+                    raise ValueError(f"LAMMPS data file {infile!r}: unsupported atom style in "
+                                     f"{line.strip()!r}, only 'Atoms # full' is supported")
                 _ = f.readline() # skip one empty line
             elif "Velocities" in line:
                 for idx in range(natoms+2): 
@@ -329,12 +323,8 @@ def read_lammps_data(infile: str) -> list[list[int,], list[nx.Graph,]]:
                 for idx in range(nimpropers+2): 
                     _ = f.readline() # skip Impropers
             else:
-                #log.warning
-                print("You should not be here!")
-                print("##### ##### #####")
-                print(line)
-                print("##### ##### #####")
-                sys.exit(0)
+                raise ValueError(f"LAMMPS data file {infile!r}: unsupported or unexpected line "
+                                 f"{line.strip()!r}")
             # next line
             line = f.readline()
     

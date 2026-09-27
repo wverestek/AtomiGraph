@@ -1,0 +1,29 @@
+Small ReaxFF example and validation case: 5 short PEEK molecules (1030 atoms) simulated with
+ReaxFF at 2000 K in LAMMPS; 3 frames (timesteps 0, 1000, 2000) in a single file.
+PEEK_2000K.png shows a snapshot of the system.
+
+The input file "bonds.reaxff.dump" was written with fix reaxff/bonds in LAMMPS. After the
+header of each frame the file contains one line per atom with
+- id = atom id
+- type = atom type
+- nb = number of bonds
+- id_1 = atom id of first bond
+- id_nb = atom id of Nth bond
+- mol = molecule id
+- bo_1 = bond order of first bond
+- bo_nb = bond order of Nth bond
+- abo = atom bond order (sum of all bonds)
+- nlp = number of lone pairs
+- q = atomic charge
+
+Expected result for rxn_bond_cutoff in {0, 1, 2}: exactly 1 reaction at timestep 2000,
+formation of the bond 703-719 (no bond broken).
+
+Reference output of write_reactions() (rxn_bond_cutoff 1): bonds.reaxff_rxnIDs_reference.dat
+
+Usage:
+  from atomigraph import AtomiGraph
+  topo = AtomiGraph(infile="examples/02_PEEK_one_reaction/bonds.reaxff.dump",
+                    atom_type_map="1:C,2:H,3:H,4:O,5:O,6:O,7:O,8:O")
+  topo.read()
+  topo.find_reactions()

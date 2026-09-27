@@ -1,0 +1,18 @@
+Epoxy network formation (EPON/DGEBA + DETDA, 585 atoms, 10 EPON + 5 DETDA), 19 LAMMPS data files
+(atom_style full) written during curing: 0.data ... 18.data, timesteps 0 ... 7012750.
+
+run_ag.py is a network analysis script:
+- removes H and the epoxy O (types 5, 6, 7, 9, 11) and linearizes DETDA and the EPON rings by
+  isomorphic pattern removal (remove_atoms_by_pattern), 275 -> 195 nodes per frame
+- splits each frame into giant component (cores, connecting, dangling) and sol fraction and
+  computes size, cyclomatic number, diameter, average path length, clustering, cycle basis
+- writes fractions.csv and fractions.png (node fractions over timestep); reference result:
+  fractions_reference.csv/.png, compare with  diff fractions.csv fractions_reference.csv
+
+Run in this folder:  python3 run_ag.py
+
+Expected results:
+- pattern removal: DETDA 5 matches, EPON 20 matches (2 rings x 10 molecules)
+- last frame (7012750): cores 71.3 %, connecting 0 %, dangling 8.7 %, sol 20.0 %;
+  cores appear at 3190000 (gel point); connecting is 0 % in all frames (small system)
+- find_reactions(), rxn_bond_cutoff 0 or 1: 18 reactions, one per frame pair

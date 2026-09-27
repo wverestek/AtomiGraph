@@ -1,6 +1,5 @@
 # python atomigraph/utils.py
 
-import os
 import warnings
 import networkx as nx
 
@@ -43,7 +42,7 @@ DEFAULT_COLOR = "#E0E0E0"
 # Jmol color scheme: https://jmol.sourceforge.net/jscolors/
 # antiquewhite FAEBD7 instead of white FFFFFF for Hydrogen
 ON2HEX: dict[int, str] = { 
-    0: "E0E0E0",
+    0: "#E0E0E0",
     1: "#FAEBD7",  2: "#D9FFFF",  3: "#CC80FF",  4: "#C2FF00",  5: "#FFB5B5",  6: "#909090",
     7: "#3050F8",  8: "#FF0D0D",  9: "#90E050", 10: "#B3E3F5", 11: "#AB5CF2", 12: "#8AFF00",
     13: "#8FAF00", 14: "#F0C8A0", 15: "#FF8000", 16: "#FFFF30", 17: "#1FF01F", 18: "#80D1E3",

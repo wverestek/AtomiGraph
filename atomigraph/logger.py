@@ -53,6 +53,8 @@ def configure_log(level: Optional[str] = None, force: bool = False) -> None:
     log.setLevel(numeric_level)
 
 log = logging.getLogger("atomigraph")
-log.addFilter(DuplicateFilter())
-# configure default on import (non-force) � can be overridden by calling configure(...) from entrypoint
+# DuplicateFilter suppresses every repeated message for the whole session (e.g. the same
+# warning on a second read()); disabled for now, to be removed in the next update
+#log.addFilter(DuplicateFilter())
+# configure default on import (non-force) - can be overridden by calling configure_log(...) from entrypoint
 configure_log()

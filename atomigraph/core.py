@@ -1,14 +1,11 @@
 # python atomigraph/core.py
-#from fileinput import filename
 import os, os.path
-
-from networkx.algorithms.operators import union
-from networkx.drawing import draw
 os.environ.setdefault("MPLBACKEND", "Agg")
-import sys, re
+import re
+import warnings
 import random
 
-from typing import TextIO, Union, List
+from typing import Union, List
 
 import matplotlib
 # Use non-interactive backend to avoid Qt/X11 errors in headless environments
@@ -32,8 +29,29 @@ configure_log(level="DEBUG", force=True)
 
 __all__ = ['DEFAULT_COLOR', 'ELEM2HEX', 'ON2ELEM', 'ON2HEX', 
            'AtomiGraph',
-           'renumber_and_count_rxns', 'filter_transient_reactions', 'remove_atoms_by_type', 'remove_atoms_by_pattern', 
-           'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
+           'renumber_and_count_reactions', 'filter_transient_reactions', 'remove_atoms_by_type', 'remove_atoms_by_pattern', 
+           'write_reactions', 'plot_reactions', 'plot_rxns', 'get_degrees', 'find_minimum_cycle_basis']
+
+
+def _derive_basename(infile: Union[str, List[str]]) -> str:
+    """
+    Output basename from input file name(s), without directory and extensions:
+    part before the first wildcard, or the common prefix of several files.
+    'pe_chain.*.data' and ['pe_chain.0.data', 'pe_chain.1000.data'] -> 'pe_chain'
+    """
+    names = [infile] if isinstance(infile, str) else list(infile or [])
+    stems = []
+    for name in filter(None, names):
+        base = os.path.basename(name)
+        head = re.split(r"[*?\[]", base, maxsplit=1)[0]
+        # no wildcard: drop file extensions
+        stems.append(head if head != base else re.sub(r"(\.(?:gz|txt|dat|data|dump))+$", "", base))
+    if not stems:
+        return "AtomiGraph"
+    prefix = os.path.commonprefix(stems)
+    if any(stem != prefix for stem in stems):
+        prefix = re.sub(r"[^._-]*$", "", prefix)    # differing names: cut back to a separator
+    return prefix.rstrip("._-") or "AtomiGraph"
 
 
 class AtomiGraph:
@@ -48,33 +66,33 @@ class AtomiGraph:
                  rxn_bond_cutoff: int = 1, plot_bonds_cutoff: int = 5, seed: int = 42,
                  ring_counter: bool = False, loop_limits:tuple[int,int]=None):
         """
-        A class to extract changes in bond topology over time.
+        Bond topology over time: read frames, find and analyse changes in bonding (reactions).
 
         infile : str or list[str]
-            A bond information file, a list of files, or glob pattern(s). The
-            reader will accept a single filename or multiple files. For
-            backward compatibility `self.infile` is the first filename (or "").
-        infile : str or list[str]
-            A bond information file, a list of files, or glob pattern(s). The
-            reader will accept a single filename or multiple files. For
-            backward compatibility `self.infile` is the first filename (or "").
+            file, list of files or glob pattern(s); read in natural order
         informat : str
-            file type of the file containing bond information. 
-            reaxff, lammps_data
-            Default "reaxff"
+            "reaxff" (fix reaxff/bonds output) or "lammps_data" (atom_style full). Default "reaxff"
         basename : str
-            base name for output. If not set the input file name is used as base name.
-        startstep : int
-            MD time step at start. Default: 0
-        stopstep : int
-            MD time step at end. Default: sys.maxsize (a very high umber)
+            output basename; default derived from infile (part before a wildcard, no extension)
+        atom_type_map : str
+            atom type to element, e.g. "1:C,2:H,3:O"; unmapped types become element "X"
         checkframe : int
-            Number of frames difference to check for changed bonds. Default: 1
+            compare frame i with frame i - checkframe. Default 1
         stepframe : int
-            Number of frames before the next evaluation is done. Default: 1
+            frames between evaluations. Default 1
+        stabiframes : int
+            the last stabiframes frames are not evaluated. Default 0
         hash_by : str
-            hash for each reaction that is build upon 'element' or 'type'. 
-            Hashes allow to identify if a similar reaction has already occured before or not.
+            node attribute ("type" or "element") for the reaction hashes that identify
+            recurring reactions. Default "type"
+        rxn_bond_cutoff : int
+            bonds around the changed bonds that belong to a reaction. Default 1
+        plot_bonds_cutoff : int
+            bonds around a reaction included in plots. Default 5
+        seed : int
+            random seed for reproducible plot layouts. Default 42
+        ring_counter, loop_limits
+            not used yet
         """
         
         log.info(f"Initializing AtomiGraph class object...")
@@ -84,16 +102,13 @@ class AtomiGraph:
         # reader.read_bonds accepts either a string, a list or glob pattern(s).
         self.infile: Union[str, List[str]] = infile
         self.informat: str = informat.lower()
-        # derive basename based on only or first filename string
-        if isinstance(self.infile, str) and len(self.infile) > 0:
-            self.basename: str = re.sub(r'(\.(?:gz|txt|dat|data|dump))+$', '', os.path.basename(self.infile))
-        elif isinstance(self.infile, list):
-            self.basename: str = re.sub(r'(\.(?:gz|txt|dat|data|dump))+$', '', os.path.basename(self.infile[0]))
+        # output basename: given explicitly or derived from the input file name(s)
+        self.basename: str = basename or _derive_basename(infile)
         
         self.checkframe:int = int(checkframe)   # necessary?
         self.stabiframe:int = int(stabiframes)
         self.stepframe:int = int(stepframe)     # necessary?
-        self.maxframe_offset = 0
+        self.last_searched_frame:int = -1        # frames up to this one are already searched for reactions
         
         # pandas DataFrame to store global bond topology
         self.frames:pd.DataFrame = pd.DataFrame(columns=("frame","timestep","graph")) # DataFrame with columns ['timestep','graph']
@@ -152,32 +167,31 @@ class AtomiGraph:
         ts, nxg = read_bonds(infile_local, informat_local)
 
         # set element attribute for each node in each graph
-        for i,g in enumerate(nxg):
+        unmapped_types = set()
+        for g in nxg:
             for n, data in g.nodes(data=True):
                 atom_type = data.get("type", None)
                 if atom_type is not None and atom_type in self.type2on:
-                    element = self.type2on[atom_type]
-                    nx.set_node_attributes(nxg[i], {n: element}, name="element")
+                    data["element"] = self.type2on[atom_type]
                 else:
-                    nx.set_node_attributes(nxg[i], {n: "X"}, name="element")
-                    log.warn(f"Warning: atom type {atom_type} not in atom_type_mapping, setting element to 'X'",stacklevel=2)
+                    data["element"] = "X"
+                    unmapped_types.add(atom_type)
+        if unmapped_types:
+            log.warning(f"atom type(s) {sorted(unmapped_types, key=lambda t: (t is None, t or 0))} not in atom_type_map, element set to 'X'")
         
         frames_arr = list(range(len(ts)))
         if self.frames.empty:
             # first read, no existing frames, just set frames DataFrame
             self.frames = pd.DataFrame({"frame":frames_arr,"timestep": ts,"graph": nxg})
         else:
-            # subsequent read
-            # drop frames in case large files are read in multiple calls to avoid 
-            # memory issues, but keep stabilize frames for reaction checking
+            # subsequent read: new frames continue the numbering
+            frames_arr = [i + self.frames["frame"].iloc[-1] + 1 for i in frames_arr]
+            # drop old frames to limit memory, keep from the "before" frame of the next search on
             nframes = len(self.frames["frame"])
-            if  nframes > 100 and nframes > self.stabiframe:
-                maxframe_keep =  self.frames["frame"].iloc[-1] - self.stabiframe
-                idx = np.where(self.frames["frame"].lt(maxframe_keep))[0].tolist()
+            if  nframes > 100 and self.last_searched_frame >= 0:
+                keep_from = self.last_searched_frame + self.stepframe - self.checkframe
+                idx = np.where(self.frames["frame"].lt(keep_from))[0].tolist()
                 _ = self.frames.drop(index=idx, inplace=True)
-                # renumber new frames to continue from last frame + 1
-                maxframe_old = self.frames["frame"].max() if not self.frames.empty else -1
-                frames_arr = [i + maxframe_old + 1 for i in frames_arr]
             # concatenate new frames to existing frames DataFrame
             self.frames = pd.concat([self.frames, 
                                      pd.DataFrame({"frame":frames_arr,"timestep": ts,"graph": nxg})],
@@ -189,46 +203,42 @@ class AtomiGraph:
     # find reactions #
     def find_reactions(self):
         """
-        read_rxns(self,
-                  infile: Optional[str] = None,
-                  informat: Optional[str] = None,
-                  force: bool = False) -> pandas.DataFrame
+        Find reactions, i.e. changes in bond topology, between frames and store them in self.rxns.
 
-        Convenience method that runs reaction detection, 
-        returning a reaction-level pandas.DataFrame.
+        Frame idx is compared with frame idx - checkframe for idx = checkframe, checkframe + stepframe, ...
+        up to the last frame minus stabiframes. If no frames have been read yet, self.read() is called.
+        A later call continues on the same grid after the last searched frame, so large trajectories
+        can be processed in chunks: read(files1), find_reactions(), read(files2), find_reactions(), ...
 
-        Summary
-        - Calls `self.read(infile, informat)` (unless already read and force is False)
-          and then `self.find_reactions()`.
-        - After execution the instance contains:
-            - self.frames (DataFrame, one row per frame)
-            - self.rxns (DataFrame, one row per detected reaction occurrence)
-            - self.rxn_id and self.rxn_count for unique-reaction bookkeeping
+        For each pair of frames:
+        - changed bonds are the bonds present in only one of the two graphs (broken or formed);
+        - atoms connected via changed bonds (and bonds between them) form the core of a reaction,
+          so a broken and a newly formed bond sharing atoms (bond flip) are one reaction;
+        - each core is expanded by rxn_bond_cutoff bonds in both frames; expanded sets that share
+          atoms are merged (transitively) into one reaction;
+        - each reaction is hashed (Weisfeiler-Lehman, node attribute hash_by) before and after.
 
-        Returns
-        - pandas.DataFrame: `self.rxns` - reaction occurrences with typical columns:
-            `frame_idx`, `timestep`, `rxn_idx`, `rxn_id`, `rxn_hash`,  `rxn_total_count`,
-            `before_components`, `after_components`, `types_before`, `types_after`,
-            `elements_before`, `elements_after`, `atoms_list`.
+        Results are appended to self.rxns (pandas.DataFrame, one row per reaction occurrence), then
+        rxnID and rxnCount are renumbered over all stored reactions: reactions with the same
+        before:after hash pair share a rxnID (in order of first appearance), rxnCount counts
+        their occurrences. Columns:
+            frame, timestep            frame index and MD timestep of the "after" frame
+            rxnID, rxnCount            reaction type and running count of this type
+            edges_before, edges_after  bonds broken / formed, list of {atom_i, atom_j}
+            atoms_rxn                  atoms of the changed bonds
+            atoms_env                  atoms of the reaction incl. rxn_bond_cutoff environment
+            atoms_plot                 atoms_env plus plot_bonds_cutoff environment
+            Gbefore, Gafter            subgraphs of atoms_plot before / after
+            rxn_hash_before, rxn_hash_after  WL hashes of atoms_env before / after
 
-        Side effects
-        - Overwrites/sets: `self.rxns`, `self.rxn_id`, `self.rxn_count`.
-        - Writes summary file `self.basename + "_rxnIDs.dat"` (same behavior as current find_rxns).
+        If no reaction is found, self.rxns is an empty DataFrame with these columns.
+        Use self.write_reactions() for a text summary and self.plot_reactions() for plots.
 
-        Errors / Exceptions
-        - ValueError: when no input file available or start/stop steps invalid.
-        - FileNotFoundError or reader errors propagated from `read_bonds`.
-        - RuntimeError for unexpected internal state.
-
-        Performance notes
-        - WL hashing and graph operations can be CPU / memory intensive for large trajectories.
-          Consider chunked processing, serializing graphs to disk, or disabling hashing for
-          very large datasets. For chunked processing rxn_ids might be inconsistent across chunks.
-
-        Example
-            r = AtomiGraph(infile="bonds.reaxff.dump")
-            rxns = r.read_rxns()           # reads frames and finds reactions
-            rxns.to_csv("rxns_summary.csv")
+        Example:
+            topo = AtomiGraph(infile="bonds.reaxff.dump", atom_type_map="1:C,2:H,3:O")
+            topo.read()
+            topo.find_reactions()
+            topo.rxns[["timestep", "rxnID", "edges_before", "edges_after"]]
         """
 
         if self.frames.empty:
@@ -240,27 +250,25 @@ class AtomiGraph:
             log.warning(f"Timesteps are not monotonic increasing!!!")
 
         log.info("Searching reactions...")
-        f_rxn:TextIO = open(self.basename + "_rxnIDs.dat", "wt")
-        mystr = "# Timestep \t RxnID \t RxnCount \t FromIDs:ToIDs \t FromType:ToType \t FromElem:ToElem \t Rxn_hashes"
-        print(mystr)
-        f_rxn.write(mystr+"\n")
         
 
-        start = 0 
         stop =  len(self.frames["frame"]) - self.stabiframe 
         cf = self.checkframe
         fs = self.stepframe
+        # position of the first "after" frame; continue the stepframe grid of previous calls
+        if self.last_searched_frame < 0:
+            start = cf
+        else:
+            start = self.last_searched_frame + fs - self.frames["frame"].iloc[0]
 
         #self.rxn_id = []
         #self.rxn_count = []
 
         df_file = pd.DataFrame(columns=self.rxns.columns)
         
-        for idx in range(start + cf, stop, fs):
-            # dicts for conversion
-            node2element = nx.get_node_attributes(self.frames["graph"].iloc[idx], name="element")
-            node2type    = nx.get_node_attributes(self.frames["graph"].iloc[idx], name="type")
-
+        last_frame = self.last_searched_frame
+        for idx in range(start, stop, fs):
+            last_frame = self.frames["frame"].iloc[idx]
             before_idx = idx - cf
             after_idx = idx
 
@@ -278,9 +286,9 @@ class AtomiGraph:
                 if df_frame is not None and not df_frame.empty:
                     df_file = pd.concat([df_file, df_frame], ignore_index=True)
                 else:
-                    log.warn("You should not be here. Maybe you have discovered a bug. Please consider reporting with a minimal example")
+                    log.warning("You should not be here. Maybe you have discovered a bug. Please consider reporting with a minimal example")
 
-        f_rxn.close()
+        self.last_searched_frame = last_frame
         
         # adding newly found reactions to self.rxns DataFrame
         # first search
@@ -288,12 +296,20 @@ class AtomiGraph:
             self.rxns = df_file.copy()
         else:
             log.info(f"appending new search to already stored reactions")
-            df_file["frame"] = df_file["frame"] + self.maxframe_offset
             self.rxns = pd.concat([self.rxns,df_file],ignore_index=True)
 
         #self.df1 = df_file.copy()
         # renumber reactions and count unique reactions
-        self.rxns = renumber_and_count_rxns(self.rxns)
+        self.rxns = renumber_and_count_reactions(self.rxns)
+
+    # write / plot reactions of this object #
+    def write_reactions(self) -> None:
+        """write_reactions(self.rxns, self.basename)"""
+        write_reactions(self.rxns, self.basename)
+
+    def plot_reactions(self, outformat:str="pdf") -> None:
+        """plot_reactions(self.rxns, self.basename, outformat)"""
+        plot_reactions(self.rxns, self.basename, outformat)
 
     # find reacting atoms for two frames #
     def _find_reacting_atoms_for_two_frames(self,Gbefore:nx.Graph,Gafter:nx.Graph):
@@ -331,19 +347,18 @@ class AtomiGraph:
                     tmpsets.append(reacting_atoms1.union(reacting_atoms2))    # combine sets
                 log.debug(f"reacting_atoms_sets after expansion: {tmpsets}")
 
-                # more than one set, check if sets have common atoms after expansion
-                # and merge if necessary, otherwise just use the expanded sets as reaction sets
+                # more than one set, merge expanded sets that share atoms (transitively):
+                # one node per expanded set, edge if two sets intersect, union per connected component
                 if len(tmpsets) > 1:
-                    # merge sets that have common atoms after expansion
-                    log.debug(f"Merging: reacting_atoms_sets before merging: {reacting_atoms_core_sets}")
-                    for i,iset in enumerate(tmpsets):
-                        for j in range(i+1, nsets):
-                            inter_atoms = iset.intersection(reacting_atoms_core_sets[j])
-                            if len(inter_atoms) > 0:
-                                print(f"Merging sets {iset} and {tmpsets[j]} with common atoms {inter_atoms}")
-                                reacting_atoms_sets.append(iset.union(tmpsets[j]))
-                                #reacting_atoms_core_sets[j] = set()                     # remove from further consideration
-                                tmpsets[j] = set()                                      # remove from further consideration
+                    log.debug(f"Merging: reacting_atoms_sets before merging: {tmpsets}")
+                    Gmerge = nx.Graph()
+                    Gmerge.add_nodes_from(range(len(tmpsets)))
+                    for i in range(len(tmpsets)):
+                        for j in range(i+1, len(tmpsets)):
+                            if not tmpsets[i].isdisjoint(tmpsets[j]):
+                                Gmerge.add_edge(i, j)
+                    for component in nx.connected_components(Gmerge):
+                        reacting_atoms_sets.append(set().union(*(tmpsets[i] for i in component)))
                     log.debug(f"Merged: reacting_atoms_sets after merging:   {reacting_atoms_sets}")
 
                 else:
@@ -417,19 +432,18 @@ class AtomiGraph:
 
 ## work on reactions and topology ##
 # renumber reactions and count unique reactions #
-def renumber_and_count_rxns(df:pd.core.frame.DataFrame=None) -> pd.core.frame.DataFrame:
+def renumber_and_count_reactions(df:pd.core.frame.DataFrame=None) -> pd.core.frame.DataFrame:
     """
-    Renumber reactions and count unique reactions based on their hashes in pandas DataFrame. 
-    This method updates two columns of the DataFrame: 'rxnID' and 'rxnCount'.
-    If df is None, operates on self.rxns and updates it in place. Otherwise, operates on the 
-    provided DataFrame and returns a new DataFrame with the updated columns.
+    Return a copy of df with 'rxnID' and 'rxnCount' set from the before:after hashes:
+    same hash pair -> same rxnID (order of first appearance), rxnCount counts occurrences.
+    An empty df is returned as an empty copy.
     """
     # operate on a copy to avoid surprising in-place side effects for caller
     df_work = df.copy(deep=True)
 
-    if df_work is None or df_work.empty:
+    if df_work.empty:
         log.info("No reactions to renumber and count.")
-        return
+        return df_work
 
     # reset index to ensure consistent indexing for reaction ID assignment
     df_work.reset_index(drop=True, inplace=True)
@@ -467,33 +481,33 @@ def filter_transient_reactions(df:pd.core.frame.DataFrame=None, nframes:int=None
     # operate on a copy to avoid surprising in-place side effects for caller
     df_work = df.copy()
         
+    # each reaction can cancel at most one reverse reaction; consumed rows are skipped,
+    # so A->B, B->A, A->B removes the first pair and keeps the net reaction A->B
     rmv_idx = []
+    consumed = set()
+    atoms_env = df_work["atoms_env"].map(tuple)     # list comparison: convert to tuple
     for idx,row in df_work.iterrows():
-        hash_before = row["rxn_hash_before"]
-        hash_after = row["rxn_hash_after"]
+        if idx in consumed:
+            continue
         current_frame = row["frame"]
         max_frame = current_frame + nframes
-        
+
         mask_frame = df_work["frame"].gt(current_frame) & df_work["frame"].le(max_frame)
-        mask_hash = (df_work["rxn_hash_before"] == hash_after) & (df_work["rxn_hash_after"] == hash_before)
-        # list comparison: convert to tuple
-        target_atoms = tuple(row["atoms_env"])
-        mask_atoms = df_work["atoms_env"].map(tuple) == target_atoms
-        mask = mask_frame & mask_hash & mask_atoms
-        tmp = np.where(mask)[0]
-        if len(tmp) > 0:
-            rev_idx = tmp[0]
-            rmv_idx.append(idx)
-            rmv_idx.append(rev_idx)
-    
+        mask_hash = (df_work["rxn_hash_before"] == row["rxn_hash_after"]) & (df_work["rxn_hash_after"] == row["rxn_hash_before"])
+        mask_atoms = atoms_env == tuple(row["atoms_env"])
+        mask_free = ~df_work.index.isin(consumed)
+        candidates = df_work.index[mask_frame & mask_hash & mask_atoms & mask_free]
+        if len(candidates) > 0:
+            # earliest reverse reaction, as index label
+            rev_idx = df_work.loc[candidates, "frame"].idxmin()
+            consumed.update((idx, rev_idx))
+            rmv_idx.extend((idx, rev_idx))
+
+    # removed reactions in original order
+    df_rmv = df_work.loc[df_work.index.isin(rmv_idx)]
+    df_work = df_work.drop(index=rmv_idx)
     if len(rmv_idx) > 0:
         log.info(f"{len(rmv_idx)} Reaction(s) found that reverse within {nframes} frames, removing reactions")
-        df_rmv = df_work.drop(rmv_idx, inplace=True)
-        #df_work = renumber_and_count_rxns(df_work)
-        #df_rmv  = renumber_and_count_rxns(df_rmv)
-    else:
-        #df_work = renumber_and_count_rxns(df_work)
-        df_rmv = None
 
     return df_work, df_rmv
 
@@ -504,8 +518,8 @@ def remove_atoms_by_type(df:pd.core.frame.DataFrame=None, target_atoms:tuple[int
     df_work = df.copy(deep=True)
             
     for idx, row in df_work.iterrows():
-        # real copy to avoid modifying the original graph in self.frames
-        nxg = row["graph"]
+        # real copy: df.copy(deep=True) does not copy the nx.Graph objects
+        nxg = row["graph"].copy()
 
         if target_atoms is None:
             nodes = list(nxg.nodes())
@@ -516,8 +530,7 @@ def remove_atoms_by_type(df:pd.core.frame.DataFrame=None, target_atoms:tuple[int
 
         nxg.remove_nodes_from(nodes)
         
-        # update the graph in the DataFrame with the modified graph
-        # should be unnecessary since we are modifying the graph in place, but to be explicit:
+        # store the modified copy in the DataFrame
         df_work.at[idx, "graph"] = nxg
     
     # return independent DataFrame with modified graphs
@@ -530,8 +543,6 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
     Simplifies the graph by matching a template pattern and removing specific 
     nodes. Handles molecular symmetry by filtering unique node sets.
     """
-    from networkx.algorithms import isomorphism
-
     # 1. Sanity Check
     template_set = set(template_node_ids)
     delete_set = set(delete_node_ids)
@@ -543,14 +554,20 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
     df_work = df.copy(deep=True)
 
     # 2. Create the template graph
-    template = df_work["graph"].iloc[pattern_from_frame].subgraph(template_node_ids).copy()
+    pattern_graph = df_work["graph"].iloc[pattern_from_frame]
+    missing = sorted(template_set - set(pattern_graph.nodes()))
+    if missing:
+        raise ValueError(f"template_node_ids {missing} not found in frame {pattern_from_frame}")
+    template = pattern_graph.subgraph(template_node_ids).copy()
     log.info(f"Starting topology reduction")
     log.info(f"Template pattern nodes: {list(template.nodes())}")
 
     nm = nx.isomorphism.categorical_node_match(node_attr, None)
 
     for idx, (df_idx, frame) in enumerate(df_work.iterrows()):
-        nxg = frame["graph"]
+        # real copy: df.copy(deep=True) does not copy the nx.Graph objects
+        nxg = frame["graph"].copy()
+        df_work.at[df_idx, "graph"] = nxg
         ncomp_before = nx.number_connected_components(nxg)
 
         # 3. Setup the GraphMatcher
@@ -569,7 +586,7 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
                 unique_molecule_footprints.add(molecule_footprint)
                 # add key (pattern id) if value (template id) is in delete_node_ids
                 #nodes_to_remove.add([k for k,v in match_dict.items() if v in delete_node_ids])
-                ## Nur für den ersten gefundenen Isomorphismus dieses Moleküls löschen
+                # delete nodes only for the first isomorphism found per molecule
                 inv_match = {v: k for k, v in match.items()}
                 for d_id in delete_node_ids:
                     if d_id in inv_match:
@@ -594,14 +611,44 @@ def remove_atoms_by_pattern(df:pd.core.frame.DataFrame, template_node_ids:list|s
     
     return df_work
 
+# write reactions #
+def write_reactions(df:pd.core.frame.DataFrame, basename:str="AtomiGraph") -> None:
+    """
+    Write <basename>_rxnIDs.dat, a tab-separated summary with one line per reaction:
+    timestep, rxnID, rxnCount, molecules before:after as atom IDs, atom types and elements,
+    and the reaction hashes before:after. Molecules are the connected parts of the reaction
+    environment (atoms_env) in the frame before and after the reaction.
+    """
+    filename = f"{basename}_rxnIDs.dat"
+    header = "# Timestep\tRxnID\tRxnCount\tFromIDs:ToIDs\tFromType:ToType\tFromElem:ToElem\tRxn_hashes"
+    with open(filename, "wt") as f:
+        f.write(header + "\n")
+        if df is None or df.empty:
+            log.warning("No reactions found to write.")
+            return
+        for _, rxn in df.iterrows():
+            ids, types, elems = [], [], []
+            for G in (rxn["Gbefore"], rxn["Gafter"]):
+                mols = sorted(sorted(c) for c in nx.connected_components(G.subgraph(rxn["atoms_env"])))
+                ids.append(mols)
+                types.append([[G.nodes[a].get("type") for a in m] for m in mols])
+                elems.append([[G.nodes[a].get("element") for a in m] for m in mols])
+            fields = [rxn["timestep"], rxn["rxnID"], rxn["rxnCount"],
+                      f"{ids[0]}:{ids[1]}", f"{types[0]}:{types[1]}", f"{elems[0]}:{elems[1]}",
+                      f"{rxn['rxn_hash_before']}:{rxn['rxn_hash_after']}"]
+            f.write("\t".join(str(x) for x in fields) + "\n")
+    log.info(f"{len(df)} reaction(s) written to {filename}")
+
+
 # plot reactions #
-def plot_rxns(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:str="pdf") -> None:
+def plot_reactions(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:str="pdf") -> None:
+    """Plot each reaction (before/after) into the folder <basename>, outformat 'pdf' or 'png'."""
     # check if DataFrame is empty
     if df.empty:
-        log.warn("No reactions found to plot.")
+        log.warning("No reactions found to plot.")
         return
 
-    outfolder = basename or "AtomiGraph_outdir"
+    outfolder = basename or "AtomiGraph"
     if not os.path.exists(outfolder):
         os.makedirs(outfolder, exist_ok=True)
     
@@ -611,7 +658,6 @@ def plot_rxns(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:s
     digitsCount =  len(str(df["rxnCount"].max()))
 
     for idx, rxn in df.iterrows():
-        frame = rxn["frame"]
         timestep = rxn["timestep"]
         rxnID = rxn["rxnID"]
         rxnCount = rxn["rxnCount"]
@@ -698,6 +744,14 @@ def plot_rxns(df:pd.core.frame.DataFrame, basename:str="AtomiGraph", outformat:s
 
 
 
+# deprecated alias, kept for backward compatibility #
+def plot_rxns(*args, **kwargs) -> None:
+    """Deprecated: use plot_reactions()."""
+    warnings.warn("plot_rxns() is deprecated, use plot_reactions() instead",
+                  DeprecationWarning, stacklevel=2)
+    return plot_reactions(*args, **kwargs)
+
+
 ## analyze topology ##
 # get degrees #
 def get_degrees(df:pd.core.frame.DataFrame=None, target_atoms:tuple[int|str,...]=None ) -> list[list[int]]:
@@ -724,8 +778,7 @@ def find_minimum_cycle_basis(df: pd.DataFrame = None, min_size: int = 7, max_blo
     decomposing the graph into biconnected components. 
 
     Args:
-        df (pd.DataFrame, optional): Input DataFrame containing 'graph' column. 
-            Defaults to self.backbone or self.frames.
+        df (pd.DataFrame): DataFrame with a 'graph' column, e.g. topo.frames.
         min_size (int): Minimum number of nodes for a cycle to be included.
         max_block_size (int, optional): Safety threshold. Blocks with more nodes 
             than this will be skipped to avoid O(n^3) complexity stalls.
